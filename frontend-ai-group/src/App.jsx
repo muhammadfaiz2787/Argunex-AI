@@ -217,8 +217,8 @@ function AuthGuardScreen() {
           Selamat Datang di Argunex AI
         </h1>
         <p className="text-base text-[#464554] mb-10 leading-relaxed">
-          Silakan login dengan akun Microsoft Anda untuk mengakses workspace
-          dan fitur analisis multi-agent.
+          Silakan login dengan akun Microsoft Anda untuk mengakses workspace dan
+          fitur analisis multi-agent.
         </p>
         <MicrosoftLoginButton size="large" />
         <p className="mt-6 text-xs text-slate-400">
@@ -1480,7 +1480,9 @@ export default function App() {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    ws.current = new WebSocket("ws://127.0.0.1:8000/ws");
+    ws.current = new WebSocket(
+      "wss://muhammadfaiz2787-argunex-ai-backend.hf.space/ws",
+    );
     ws.current.onmessage = handleWsMessage;
     ws.current.onopen = () => {
       setWsConnected(true);
@@ -1511,10 +1513,13 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://127.0.0.1:8000/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        "https://muhammadfaiz2787-argunex-ai-backend.hf.space/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
       if (!response.ok) {
         const errData = await response
@@ -1704,7 +1709,7 @@ export default function App() {
   // ==========================================
   // RENDER
   // ==========================================
-  
+
   // AUTH GUARD: Jika belum login, tampilkan halaman login penuh
   if (accounts.length === 0) {
     return (
@@ -2310,7 +2315,7 @@ export default function App() {
                   <button
                     onClick={() =>
                       setPdfPreviewUrl(
-                        `http://127.0.0.1:8000${result.files.pdf}`,
+                        `https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.pdf}`,
                       )
                     }
                     className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50"
@@ -2318,7 +2323,7 @@ export default function App() {
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`http://127.0.0.1:8000${result.files.pdf}`}
+                    href={`https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.ppt}`}
                     download
                     className="flex items-center justify-center gap-2 bg-[#4648d4] text-white py-2.5 rounded-xl text-xs font-semibold text-center"
                   >
@@ -2351,7 +2356,7 @@ export default function App() {
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`http://127.0.0.1:8000${result.files.ppt}`}
+                    href={`https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.ppt}`}
                     download
                     className="flex items-center justify-center gap-2 bg-[#4648d4] text-white py-2.5 rounded-xl text-xs font-semibold text-center"
                   >
