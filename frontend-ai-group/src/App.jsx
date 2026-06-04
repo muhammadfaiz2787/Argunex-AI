@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useMsal } from "@azure/msal-react";
 import {
   FileText,
   Download,
@@ -47,6 +48,187 @@ import {
   UploadCloud,
 } from "lucide-react";
 import logoArgunex from "./assets/logo_argunex.jpeg";
+
+// ==========================================
+// KOMPONEN TOMBOL LOGIN MICROSOFT (REUSABLE)
+// ==========================================
+function MicrosoftLoginButton({ size = "small" }) {
+  const { instance } = useMsal();
+
+  const handleLogin = async () => {
+    try {
+      await instance.loginRedirect({
+        scopes: ["user.read"],
+        prompt: "select_account",
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  };
+
+  if (size === "large") {
+    return (
+      <button
+        onClick={handleLogin}
+        className="flex items-center gap-3 px-8 py-4 bg-[#0078d4] hover:bg-[#005a9e] text-white rounded-2xl text-lg font-bold transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 21 21"
+        >
+          <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+          <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+          <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+        </svg>
+        Masuk dengan Microsoft
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleLogin}
+      className="flex items-center gap-2 px-4 py-2 bg-[#0078d4] text-white rounded-lg text-xs font-bold hover:bg-[#005a9e] transition-colors shadow-sm"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="14"
+        height="14"
+        viewBox="0 0 21 21"
+      >
+        <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+      </svg>
+      Masuk dengan Microsoft
+    </button>
+  );
+}
+
+// ==========================================
+// KOMPONEN DROPDOWN PROFIL USER (LOGOUT & GANTI AKUN)
+// ==========================================
+function UserProfileDropdown() {
+  const { instance, accounts } = useMsal();
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const userName = accounts[0]?.name || "User";
+  const firstName = userName.split(" ")[0];
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const names = name.split(" ");
+    if (names.length === 1) return names[0].charAt(0).toUpperCase();
+    return (
+      names[0].charAt(0) + names[names.length - 1].charAt(0)
+    ).toUpperCase();
+  };
+
+  const handleLogout = () => {
+    setIsOpen(false);
+    instance.logoutRedirect();
+  };
+
+  const handleSwitchAccount = () => {
+    setIsOpen(false);
+    instance.setActiveAccount(null);
+    instance.loginRedirect({
+      scopes: ["user.read"],
+      prompt: "select_account",
+    });
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-semibold text-slate-600 hidden md:block">
+          Selamat Datang,{" "}
+          <span className="text-[#4648d4] font-bold">{firstName}</span>
+        </span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
+          <CheckCircle2 className="w-3 h-3" />
+          Berhasil login akun microsoft
+        </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-9 h-9 rounded-full bg-[#4648d4] text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer border-2 border-white hover:bg-[#3638b0] transition-colors"
+          title={userName}
+        >
+          {getInitials(userName)}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-fadeIn">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <p className="text-sm font-bold text-slate-900">{userName}</p>
+            <p className="text-xs text-slate-500 truncate">
+              {accounts[0]?.username || ""}
+            </p>
+          </div>
+          <button
+            onClick={handleSwitchAccount}
+            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+          >
+            <RefreshCcw className="w-4 h-4 text-slate-400" />
+            Ganti Akun
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 rotate-180 text-red-400" />
+            Logout
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// HALAMAN LOGIN (AUTH GUARD)
+// ==========================================
+function AuthGuardScreen() {
+  return (
+    <div className="min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center px-6 hero-pattern">
+      <div className="max-w-md w-full text-center">
+        <img
+          src={logoArgunex}
+          alt="Argunex AI Logo"
+          className="h-16 w-auto mx-auto mb-8 object-contain"
+        />
+        <h1 className="text-3xl font-extrabold text-[#191c1d] mb-4 tracking-tight">
+          Selamat Datang di Argunex AI
+        </h1>
+        <p className="text-base text-[#464554] mb-10 leading-relaxed">
+          Silakan login dengan akun Microsoft Anda untuk mengakses workspace
+          dan fitur analisis multi-agent.
+        </p>
+        <MicrosoftLoginButton size="large" />
+        <p className="mt-6 text-xs text-slate-400">
+          Autentikasi diperlukan untuk melanjutkan.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // Helper functions
 function getPhaseStyle(phase) {
   const styles = {
@@ -469,8 +651,10 @@ function SimulationView({
 
   useEffect(() => {
     if (!simulationData?.variables) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAdjustedValues(createInitialAdjustedValues(simulationData.variables));
+    const timer = setTimeout(() => {
+      setAdjustedValues(createInitialAdjustedValues(simulationData.variables));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [simulationData?.variables]);
 
   const handleSliderChange = (name, value) => {
@@ -1198,6 +1382,7 @@ function SimulationView({
 // MAIN APP COMPONENT
 // ==========================================
 export default function App() {
+  const { accounts } = useMsal();
   const [view, setView] = useState("home");
   const [input, setInput] = useState("");
   const [progress, setProgress] = useState(0);
@@ -1208,7 +1393,7 @@ export default function App() {
   const [extractedDocText, setExtractedDocText] = useState("");
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [fileUploadError, setFileUploadError] = useState("");
-  const [isDraggingOver, setIsDraggingOver] = useState(false); // State untuk Drag & Drop visual
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [result, setResult] = useState({ content: "", files: {} });
   const [currentLog, setCurrentLog] = useState(
     "System initialized. Awaiting user input...",
@@ -1376,17 +1561,15 @@ export default function App() {
     setFileUploadError("");
   };
 
-  // Paste Handler (Ctrl+V)
   const handlePaste = (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf("image") !== -1) {
-        e.preventDefault(); // Mencegah teks aneh masuk ke textarea
+        e.preventDefault();
         const file = items[i].getAsFile();
         if (file) {
-          // Beri nama file karena clipboard tidak membawa nama
           const namedFile = new File([file], `pasted_image_${Date.now()}.png`, {
             type: file.type,
           });
@@ -1395,10 +1578,8 @@ export default function App() {
         return;
       }
     }
-    // Jika bukan gambar, biarkan teks di-paste secara normal oleh browser
   };
 
-  // Drag & Drop Handlers
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1523,6 +1704,22 @@ export default function App() {
   // ==========================================
   // RENDER
   // ==========================================
+  
+  // AUTH GUARD: Jika belum login, tampilkan halaman login penuh
+  if (accounts.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+          .hero-pattern { background-image: radial-gradient(circle at 2px 2px, #e1e3e4 1px, transparent 0); background-size: 40px 40px; }
+          @keyframes fadeIn { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+          .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        `}</style>
+        <AuthGuardScreen />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
       <style>{`
@@ -1566,12 +1763,6 @@ export default function App() {
               >
                 Workspace
               </button>
-              <button className="text-[#464554] hover:text-[#4648d4] transition-colors py-1">
-                Agents
-              </button>
-              <button className="text-[#464554] hover:text-[#4648d4] transition-colors py-1">
-                Settings
-              </button>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -1582,11 +1773,9 @@ export default function App() {
                 {getPhaseIcon(discussionPhase)} {discussionPhase.toUpperCase()}
               </div>
             )}
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-[#e1e3e4]">
-              <div className="w-full h-full bg-[#4648d4] flex items-center justify-center text-white font-bold text-sm">
-                AI
-              </div>
-            </div>
+
+            {/* USER PROFILE DROPDOWN: Avatar + Logout + Ganti Akun */}
+            <UserProfileDropdown />
           </div>
         </div>
       </nav>
@@ -1746,7 +1935,6 @@ export default function App() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                {/* Drop Zone Overlay */}
                 {isDraggingOver && (
                   <div className="absolute inset-0 bg-[#4648d4]/5 backdrop-blur-sm rounded-3xl z-10 flex flex-col items-center justify-center pointer-events-none">
                     <UploadCloud className="w-16 h-16 text-[#4648d4] mb-4 animate-bounce" />
@@ -1768,12 +1956,11 @@ export default function App() {
                       startProcess();
                     }
                   }}
-                  onPaste={handlePaste} // Paste event handler
+                  onPaste={handlePaste}
                   className="w-full border-none focus:ring-0 text-base bg-transparent resize-none p-2 placeholder:text-gray-400 outline-none h-32"
                   placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)"
                 />
 
-                {/* File Preview Section */}
                 {selectedFile && (
                   <div className="mx-2 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-fadeIn">
                     <div className="flex items-center justify-between mb-2">

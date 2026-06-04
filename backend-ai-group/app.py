@@ -19,7 +19,8 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
-from dotenv import load_workbook, load_dotenv
+from dotenv import load_dotenv
+from openpyxl import load_workbook
 load_dotenv()
 
 app = FastAPI()
