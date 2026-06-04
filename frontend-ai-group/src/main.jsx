@@ -10,7 +10,7 @@ const msalConfig = {
   auth: {
     clientId: "3cbfd24a-638a-4603-a19d-80256b34a51e",
     authority: "https://login.microsoftonline.com/common",
-    redirectUri: "http://localhost:5173",
+    redirectUri: "https://argunex-ai-ten.vercel.app",
   },
   cache: {
     cacheLocation: "sessionStorage",
