@@ -651,6 +651,9 @@ function NetworkGraph({
 // ==========================================
 // SIMULATION ENGINE VIEW COMPONENT
 // ==========================================
+// ==========================================
+// SIMULATION ENGINE VIEW COMPONENT (FIXED)
+// ==========================================
 function SimulationView({
   simulationData,
   simulationResults,
@@ -671,6 +674,7 @@ function SimulationView({
     createInitialAdjustedValues(simulationData?.variables),
   );
   const [isRunning, setIsRunning] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false); // ← FIX #2: Prevent double-click
   const [toast, setToast] = useState(null);
   const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
@@ -788,18 +792,61 @@ function SimulationView({
     simulationData?.variables && simulationData.variables.length > 0;
 
   // ==========================================
-  // FIX: Confirm & Proceed — kirim hanya data ringan yang dibutuhkan backend
+  // FIX #1, #2, #3: handleConfirm yang robust
   // ==========================================
-  const handleConfirm = () => {
-    if (!simulationResults) return;
-    // Kirim hanya payload ringan: scenario_params + scenario_comparison
-    // Hindari mengirim seluruh object besar (base_calculations, kpis, dll)
+  const handleConfirm = useCallback(() => {
+    // Validasi 1: Pastikan simulationResults ada
+    if (!simulationResults) {
+      console.warn("[Confirm] simulationResults is null/undefined");
+      setToast({ type: "info", message: "Simulation results not available yet." });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    // Validasi 2: Pastikan onConfirmSimulation prop adalah function
+    if (typeof onConfirmSimulation !== "function") {
+      console.error("[Confirm] onConfirmSimulation prop is not a function!", onConfirmSimulation);
+      setToast({ type: "info", message: "System error: confirm handler not connected." });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    // Validasi 3: Cegah double-click
+    if (isConfirming) {
+      console.log("[Confirm] Already confirming, ignoring double-click.");
+      return;
+    }
+
+    setIsConfirming(true);
+
+    // FIX #3: Buat payload ringan dengan fallback yang aman
+    // Pastikan tidak mengirim object kosong {} ke backend
+    const scenarioParams = simulationResults.scenario_params || {};
+    const scenarioComparison = simulationResults.scenario_comparison || {};
+
+    // Jika keduanya kosong, fallback ke kirim minimal data agar backend tetap bisa proceed
     const lightweightSummary = {
-      scenario_params: simulationResults.scenario_params || {},
-      scenario_comparison: simulationResults.scenario_comparison || {},
+      scenario_params: scenarioParams,
+      scenario_comparison: scenarioComparison,
+      // Tambahkan metadata ringan agar backend bisa identifikasi session
+      confirmed_at: new Date().toISOString(),
+      has_adjustments: Object.keys(scenarioComparison).length > 0,
     };
-    onConfirmSimulation(lightweightSummary);
-  };
+
+    console.log("[Confirm] Sending lightweight payload:", lightweightSummary);
+
+    try {
+      onConfirmSimulation(lightweightSummary);
+      setToast({ type: "success", message: "Proceeding to Action Plan..." });
+    } catch (err) {
+      console.error("[Confirm] Error calling onConfirmSimulation:", err);
+      setToast({ type: "info", message: "Failed to proceed. Please try again." });
+    } finally {
+      // Reset isConfirming setelah 2 detik (jika WebSocket lambat)
+      setTimeout(() => setIsConfirming(false), 2000);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [simulationResults, onConfirmSimulation, isConfirming]);
 
   return (
     <div className="h-[calc(100vh-72px)] flex flex-col bg-slate-50 overflow-hidden relative">
@@ -1408,6 +1455,9 @@ function SimulationView({
                 </div>
               </div>
 
+              {/* ========================================== */}
+              {/* FIX: Tombol Confirm & Proceed — Robust & Anti-Double-Click */}
+              {/* ========================================== */}
               <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
@@ -1419,16 +1469,18 @@ function SimulationView({
                       recommendations and SOP.
                     </p>
                   </div>
-                  {/* ========================================== */}
-                  {/* FIX: Gunakan handleConfirm yang membuat payload ringan */}
-                  {/* ========================================== */}
                   <button
                     onClick={handleConfirm}
-                    disabled={!wsConnected}
+                    disabled={!wsConnected || isConfirming}
                     className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
                   >
-                    <CheckCircle className="w-4 h-4" /> Confirm & Proceed{" "}
-                    <ArrowRight className="w-4 h-4" />
+                    {isConfirming ? (
+                      <RefreshCcw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {isConfirming ? "Processing..." : "Confirm & Proceed"}
+                    {!isConfirming && <ArrowRight className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -1833,17 +1885,39 @@ export default function App() {
     }
   };
 
-  const handleConfirmSimulation = (simulationSummary) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(
-        JSON.stringify({
-          type: "confirm_simulation",
-          simulation_summary: simulationSummary,
-        }),
-      );
+  const handleConfirmSimulation = useCallback((simulationSummary) => {
+    // Validasi WebSocket state
+    if (!ws.current) {
+      console.error("[WS] WebSocket instance is null");
+      setCurrentLog("❌ WebSocket not initialized. Cannot proceed.");
+      return;
     }
-    setCurrentLog("Simulation confirmed. Compiling Action Plan & SOP...");
-  };
+
+    if (ws.current.readyState !== WebSocket.OPEN) {
+      console.error("[WS] WebSocket not open. State:", ws.current.readyState);
+      setCurrentLog("❌ Connection lost. Reconnecting...");
+      // Trigger reconnect
+      connectWebSocket();
+      return;
+    }
+
+    try {
+      const payload = {
+        type: "confirm_simulation",
+        simulation_summary: simulationSummary,
+      };
+      
+      console.log("[WS] Sending confirm_simulation:", payload);
+      ws.current.send(JSON.stringify(payload));
+      setCurrentLog("✅ Simulation confirmed. Compiling Action Plan & SOP...");
+      
+      // Opsional: Set view ke loading state sementara
+      // setView("summary_loading"); 
+    } catch (err) {
+      console.error("[WS] Failed to send confirm_simulation:", err);
+      setCurrentLog(`❌ Failed to send confirmation: ${err.message}`);
+    }
+  }, [connectWebSocket]);
 
   const handleSkipSimulation = () => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
