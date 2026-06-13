@@ -787,6 +787,20 @@ function SimulationView({
   const hasVariables =
     simulationData?.variables && simulationData.variables.length > 0;
 
+  // ==========================================
+  // FIX: Confirm & Proceed — kirim hanya data ringan yang dibutuhkan backend
+  // ==========================================
+  const handleConfirm = () => {
+    if (!simulationResults) return;
+    // Kirim hanya payload ringan: scenario_params + scenario_comparison
+    // Hindari mengirim seluruh object besar (base_calculations, kpis, dll)
+    const lightweightSummary = {
+      scenario_params: simulationResults.scenario_params || {},
+      scenario_comparison: simulationResults.scenario_comparison || {},
+    };
+    onConfirmSimulation(lightweightSummary);
+  };
+
   return (
     <div className="h-[calc(100vh-72px)] flex flex-col bg-slate-50 overflow-hidden relative">
       {toast && (
@@ -1405,9 +1419,13 @@ function SimulationView({
                       recommendations and SOP.
                     </p>
                   </div>
+                  {/* ========================================== */}
+                  {/* FIX: Gunakan handleConfirm yang membuat payload ringan */}
+                  {/* ========================================== */}
                   <button
-                    onClick={() => onConfirmSimulation(simulationResults)}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
+                    onClick={handleConfirm}
+                    disabled={!wsConnected}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
                   >
                     <CheckCircle className="w-4 h-4" /> Confirm & Proceed{" "}
                     <ArrowRight className="w-4 h-4" />
@@ -1457,6 +1475,8 @@ export default function App() {
   const [apiError, setApiError] = useState(null);
   const [selectedAgentText, setSelectedAgentText] = useState(null);
   const [analysisMetrics, setAnalysisMetrics] = useState(null);
+  // State untuk menyimpan roles dari backend
+  const [agentRoles, setAgentRoles] = useState([]);
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
@@ -1483,16 +1503,12 @@ export default function App() {
     }
   };
 
-  const uniqueAgentNames = Array.from(
-    new Set(messages.map((m) => m.agent).filter(Boolean)),
-  );
-  const visibleAgents = uniqueAgentNames.map((name, idx) => {
+  // visibleAgents sekarang derive dari agentRoles (backend)
+  const visibleAgents = agentRoles.map((name, idx) => {
     const styleObj = AGENT_STYLE_POOL[idx % AGENT_STYLE_POOL.length];
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
-  // FIXED: handleAgentClick langsung menggunakan messages state (real-time)
-  // dengan dependency [messages] agar selalu terupdate
   const handleAgentClick = useCallback((agentName) => {
     const agentMessages = messages.filter((m) => m.agent === agentName);
 
@@ -1511,7 +1527,6 @@ export default function App() {
     setSelectedAgentText({ name: agentName, text: fullText });
   }, [messages]);
 
-  // FIXED: handleWsMessage memastikan data.agent dan data.text selalu valid string
   const handleWsMessage = useCallback((event) => {
     try {
       const data = JSON.parse(event.data);
@@ -1533,12 +1548,21 @@ export default function App() {
       if (data.step === "roles") {
         setCurrentLog("System assigning optimized multi-agent roles...");
         setDiscussionPhase("roles");
+      } else if (data.step === "roles_ready") {
+        if (data.roles && Array.isArray(data.roles)) {
+          setAgentRoles(data.roles);
+        }
+        setCurrentLog(`Roles assigned: ${data.roles?.join(", ")}`);
       } else if (data.step === "discussing") {
         const agentName = typeof data.agent === "string" ? data.agent : "System Agent";
         const agentText = typeof data.text === "string" ? data.text : "";
-        setMessages((prev) => [...prev, { agent: agentName, text: agentText }]);
-        setActiveAgent(agentName);
-        setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
+        if (agentName.includes("Reviewer")) {
+          setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
+        } else {
+          setMessages((prev) => [...prev, { agent: agentName, text: agentText }]);
+          setActiveAgent(agentName);
+          setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
+        }
         setDiscussionPhase("discussing");
       } else if (data.step === "ask_user") {
         setIsWaitingUser(true);
@@ -1746,11 +1770,11 @@ export default function App() {
     }
   };
 
-  // FIXED: startProcess mereset messages, analysisMetrics, dan selectedAgentText dengan bersih
   const startProcess = () => {
     if (!input.trim() && !extractedDocText) return;
     setView("discussion");
     setMessages([]);
+    setAgentRoles([]);
     setAnalysisMetrics(null);
     setSelectedAgentText(null);
     setProgress(10);
@@ -1843,10 +1867,6 @@ export default function App() {
         '<span class="formula-highlight">$1</span>',
       );
   };
-
-  // ==========================================
-  // RENDER
-  // ==========================================
 
   if (accounts.length === 0) {
     return (
@@ -2351,7 +2371,7 @@ export default function App() {
                         const latestMsg =
                           agentMessages[agentMessages.length - 1];
                         const status =
-                          activeAgent === agent.name ? "active" : "completed";
+                          activeAgent === agent.name ? "active" : (agentMessages.length > 0 ? "completed" : "idle");
 
                         const displayText = () => {
                           if (latestMsg && latestMsg.text && latestMsg.text.trim().length > 3) {
@@ -2360,7 +2380,10 @@ export default function App() {
                           if (status === "active") {
                             return `Processing ${agent.name.toLowerCase()} analysis...`;
                           }
-                          return "Analysis completed.";
+                          if (status === "completed") {
+                            return "Analysis completed.";
+                          }
+                          return "Waiting for assignment...";
                         };
 
                         return (
