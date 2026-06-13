@@ -649,9 +649,6 @@ function NetworkGraph({
 }
 
 // ==========================================
-// SIMULATION ENGINE VIEW COMPONENT
-// ==========================================
-// ==========================================
 // SIMULATION ENGINE VIEW COMPONENT (FIXED)
 // ==========================================
 function SimulationView({
@@ -674,7 +671,7 @@ function SimulationView({
     createInitialAdjustedValues(simulationData?.variables),
   );
   const [isRunning, setIsRunning] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false); // ← FIX #2: Prevent double-click
+  const [isConfirming, setIsConfirming] = useState(false); // FIX: Anti double-click
   const [toast, setToast] = useState(null);
   const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
@@ -792,7 +789,7 @@ function SimulationView({
     simulationData?.variables && simulationData.variables.length > 0;
 
   // ==========================================
-  // FIX #1, #2, #3: handleConfirm yang robust
+  // FIX: handleConfirm — Robust, Anti-Double-Click, Validasi Prop
   // ==========================================
   const handleConfirm = useCallback(() => {
     // Validasi 1: Pastikan simulationResults ada
@@ -819,16 +816,13 @@ function SimulationView({
 
     setIsConfirming(true);
 
-    // FIX #3: Buat payload ringan dengan fallback yang aman
-    // Pastikan tidak mengirim object kosong {} ke backend
+    // Buat payload ringan dengan fallback yang aman
     const scenarioParams = simulationResults.scenario_params || {};
     const scenarioComparison = simulationResults.scenario_comparison || {};
 
-    // Jika keduanya kosong, fallback ke kirim minimal data agar backend tetap bisa proceed
     const lightweightSummary = {
       scenario_params: scenarioParams,
       scenario_comparison: scenarioComparison,
-      // Tambahkan metadata ringan agar backend bisa identifikasi session
       confirmed_at: new Date().toISOString(),
       has_adjustments: Object.keys(scenarioComparison).length > 0,
     };
@@ -842,7 +836,6 @@ function SimulationView({
       console.error("[Confirm] Error calling onConfirmSimulation:", err);
       setToast({ type: "info", message: "Failed to proceed. Please try again." });
     } finally {
-      // Reset isConfirming setelah 2 detik (jika WebSocket lambat)
       setTimeout(() => setIsConfirming(false), 2000);
       setTimeout(() => setToast(null), 3000);
     }
@@ -1885,8 +1878,10 @@ export default function App() {
     }
   };
 
+  // ==========================================
+  // FIX: handleConfirmSimulation — Validasi WebSocket & Error Handling
+  // ==========================================
   const handleConfirmSimulation = useCallback((simulationSummary) => {
-    // Validasi WebSocket state
     if (!ws.current) {
       console.error("[WS] WebSocket instance is null");
       setCurrentLog("❌ WebSocket not initialized. Cannot proceed.");
@@ -1896,7 +1891,6 @@ export default function App() {
     if (ws.current.readyState !== WebSocket.OPEN) {
       console.error("[WS] WebSocket not open. State:", ws.current.readyState);
       setCurrentLog("❌ Connection lost. Reconnecting...");
-      // Trigger reconnect
       connectWebSocket();
       return;
     }
@@ -1906,13 +1900,9 @@ export default function App() {
         type: "confirm_simulation",
         simulation_summary: simulationSummary,
       };
-      
       console.log("[WS] Sending confirm_simulation:", payload);
       ws.current.send(JSON.stringify(payload));
       setCurrentLog("✅ Simulation confirmed. Compiling Action Plan & SOP...");
-      
-      // Opsional: Set view ke loading state sementara
-      // setView("summary_loading"); 
     } catch (err) {
       console.error("[WS] Failed to send confirm_simulation:", err);
       setCurrentLog(`❌ Failed to send confirmation: ${err.message}`);
