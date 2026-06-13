@@ -1628,30 +1628,33 @@ export default function App() {
         setSimulationResults(data.scenario_results);
         setCurrentLog("Simulation completed. Scenario analysis ready.");
       } else if (data.step === "final") {
-          setResult({ content: data.content, files: data.files });
-          // FIX: Pastikan slides_preview selalu di-set dengan fallback
-          if (data.slides_preview && data.slides_preview.length > 0) {
-              setPptSlides(data.slides_preview);
-          } else {
-              // Fallback: ekstrak slides dari content jika backend tidak kirim slides_preview
-              const lines = (data.content || "").split('\n');
-              const fallbackSlides = [];
-              let currentSlide = null;
-              for (const line of lines) {
-                  if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
-                      if (currentSlide) fallbackSlides.push(currentSlide);
-                      currentSlide = { title: line.replace(/#+ /, ''), bullets: [] };
-                  } else if (currentSlide && line.trim().startsWith('- ')) {
-                      currentSlide.bullets.push(line.replace('- ', ''));
-                  }
-              }
+        setResult({ content: data.content, files: data.files });
+        // FIX: Pastikan slides_preview selalu di-set dengan fallback
+        if (data.slides_preview && data.slides_preview.length > 0) {
+          setPptSlides(data.slides_preview);
+        } else {
+          // Fallback: ekstrak slides dari content jika backend tidak kirim slides_preview
+          const lines = (data.content || "").split('
+');
+          const fallbackSlides = [];
+          let currentSlide = null;
+          for (const line of lines) {
+            if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
               if (currentSlide) fallbackSlides.push(currentSlide);
-              setPptSlides(fallbackSlides.length > 0 ? fallbackSlides : [{ title: "Strategic Blueprint", bullets: ["Report generated successfully."] }]);
+              currentSlide = { title: line.replace(/#+ /, ''), bullets: [] };
+            } else if (currentSlide && line.trim().startsWith('- ')) {
+              currentSlide.bullets.push(line.replace('- ', ''));
+            }
           }
-          setView("summary");
-          setCurrentLog("Analysis completed. Final quantitative reports generated.");
-          setDiscussionPhase("final");
-          setActiveAgent(null);
+          if (currentSlide) fallbackSlides.push(currentSlide);
+          setPptSlides(fallbackSlides.length > 0 ? fallbackSlides : [{ title: "Strategic Blueprint", bullets: ["Report generated successfully."] }]);
+        }
+        setView("summary");
+        setCurrentLog(
+          "Analysis completed. Final quantitative reports generated.",
+        );
+        setDiscussionPhase("final");
+        setActiveAgent(null);
       } else if (data.type === "analysis_metrics") {
         setAnalysisMetrics(data.metrics);
         setCurrentLog("Analysis metrics calculated successfully.");
