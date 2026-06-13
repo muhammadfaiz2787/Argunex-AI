@@ -50,19 +50,94 @@ import {
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
 // ==========================================
-// KONSTANTA & UTILITAS
+// KONFIGURASI GLOBAL FRONTEND
 // ==========================================
-const MAX_FILE_SIZE_FRONTEND = 2 * 1024 * 1024; // 2 MB
-const MAX_INPUT_LENGTH = 1500;
-const MAX_CLARIFICATION_LENGTH = 500;
+const WS_URL = "wss://YOUR_HF_SPACE_URL/ws"; // Ganti dengan URL WebSocket Backend Anda
+const BACKEND_URL = "https://YOUR_HF_SPACE_URL"; // Ganti dengan URL Backend Anda
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 
-const ERROR_MESSAGES = {
-  ERROR_401_UNAUTHORIZED: "Sistem mengalami masalah autentikasi API Key. Harap hubungi administrator.",
-  ERROR_402_NO_BALANCE: "Batas kuota simulasi operasional penuh (Saldo API Habis).",
-  ERROR_429_LIMIT: "Server sedang sibuk memproses antrean data. Mohon tunggu 5 detik dan coba lagi.",
-  ERROR_400_INVALID: "Format permintaan tidak valid. Silakan periksa input dan coba lagi.",
-  ERROR_503_OVERLOAD: "Infrastruktur DeepSeek global sedang mengalami kelebihan beban. Sistem otomatis beralih ke mode antrean.",
-};
+// ==========================================
+// KOMPONEN MODAL ERROR API (VISUAL INDICATOR)
+// ==========================================
+function ApiErrorModal({ errorCode, onClose }) {
+  if (!errorCode) return null;
+
+  const errorConfig = {
+    ERROR_401_UNAUTHORIZED: {
+      title: "Autentikasi Gagal",
+      message:
+        "Sistem mengalami masalah autentikasi API Key. Harap hubungi administrator.",
+      color: "text-red-600",
+      bg: "bg-red-50",
+      icon: Shield,
+    },
+    ERROR_402_NO_BALANCE: {
+      title: "Kuota Habis",
+      message:
+        "Batas kuota simulasi operasional penuh (Saldo API Habis).",
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      icon: AlertTriangle,
+    },
+    ERROR_429_LIMIT: {
+      title: "Server Sibuk",
+      message:
+        "Server sedang sibuk memproses antrean data. Mohon tunggu 5 detik dan coba lagi.",
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      icon: Clock,
+    },
+    ERROR_400_INVALID: {
+      title: "Format Tidak Valid",
+      message:
+        "Permintaan gagal diproses karena format data atau parameter tidak valid.",
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      icon: AlertOctagon,
+    },
+    ERROR_503_OVERLOAD: {
+      title: "Infrastruktur Overload",
+      message:
+        "Infrastruktur DeepSeek global sedang mengalami kelebihan beban. Sistem otomatis beralih ke mode antrean.",
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      icon: Network,
+    },
+  };
+
+  const config = errorConfig[errorCode] || {
+    title: "Koneksi Error",
+    message: "Terjadi kesalahan koneksi ke server. Silakan coba lagi.",
+    color: "text-slate-600",
+    bg: "bg-slate-50",
+    icon: AlertTriangle,
+  };
+  const Icon = config.icon;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-200">
+        <div
+          className={`w-16 h-16 rounded-full ${config.bg} flex items-center justify-center mx-auto mb-5`}
+        >
+          <Icon className={`w-8 h-8 ${config.color}`} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-3">
+          {config.title}
+        </h3>
+        <p className="text-sm text-slate-600 mb-8 leading-relaxed">
+          {config.message}
+        </p>
+        <button
+          onClick={onClose}
+          className="px-6 py-2.5 bg-[#4648d4] text-white rounded-xl font-semibold text-sm hover:bg-[#3638b0] transition-colors shadow-md"
+        >
+          Mengerti
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ==========================================
 // KOMPONEN TOMBOL LOGIN MICROSOFT (REUSABLE)
@@ -267,35 +342,6 @@ function getPhaseIcon(phase) {
     final: <CheckCircle2 className="w-3.5 h-3.5" />,
   };
   return icons[phase] || icons.idle;
-}
-
-function getAgentCardStyle(status) {
-  const styles = {
-    idle: "border-slate-200 bg-slate-50",
-    active: "border-amber-300 bg-amber-50 shadow-md shadow-amber-100",
-    completed: "border-emerald-200 bg-emerald-50",
-  };
-  return styles[status] || styles.idle;
-}
-
-function getStatusDot(status) {
-  const dots = {
-    idle: "bg-slate-300",
-    active: "bg-amber-500 animate-pulse",
-    completed: "bg-emerald-500",
-  };
-  return dots[status] || dots.idle;
-}
-
-function getAgentStatusIcon(status) {
-  switch (status) {
-    case "active":
-      return <Activity className="w-5 h-5 text-amber-500 animate-pulse" />;
-    case "completed":
-      return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
-    default:
-      return <Clock className="w-5 h-5 text-slate-400" />;
-  }
 }
 
 // ==========================================
@@ -717,6 +763,11 @@ function SimulationView({
     onRunSimulation(changed);
   };
 
+  const handleConfirm = () => {
+    setIsRunning(false);
+    onConfirmSimulation(simulationResults || {});
+  };
+
   useEffect(() => {
     if (!simulationResults) return;
     const timeoutId = setTimeout(() => setIsRunning(false), 0);
@@ -798,7 +849,7 @@ function SimulationView({
             onClick={onBackToDiscussion}
             className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Analysis
+            <ArrowLeft className="w-4 h-4" /> Kembali ke Analisis
           </button>
           <div className="h-6 w-px bg-slate-200" />
           <div className="flex items-center gap-2">
@@ -848,7 +899,7 @@ function SimulationView({
             <div className="flex gap-3 mt-4">
               <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                  Entities
+                  Entitas
                 </p>
                 <p className="text-sm font-bold text-slate-900">
                   {simulationData?.entities?.count
@@ -858,7 +909,7 @@ function SimulationView({
               </div>
               <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                  Variables
+                  Variabel
                 </p>
                 <p className="text-sm font-bold text-slate-900">
                   {simulationData?.variables?.length || 0}
@@ -871,7 +922,7 @@ function SimulationView({
             <div className="flex items-center justify-between mb-5">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-[#4648d4]" />{" "}
-                Parameters
+                Parameter
               </h4>
               <button
                 onClick={handleReset}
@@ -935,11 +986,10 @@ function SimulationView({
               <div className="text-center py-8">
                 <AlertOctagon className="w-8 h-8 text-amber-400 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-slate-700 mb-1">
-                  No Adjustable Parameters
+                  Tidak Ada Parameter
                 </p>
                 <p className="text-xs text-slate-500">
-                  Variables could not be extracted. You can still proceed to the
-                  action plan.
+                  Variabel tidak dapat diekstrak. Anda tetap bisa lanjut ke rencana aksi.
                 </p>
               </div>
             )}
@@ -955,49 +1005,22 @@ function SimulationView({
                 ) : (
                   <Play className="w-4 h-4" />
                 )}
-                {isRunning ? "Running Simulation..." : "Run Simulation"}
+                {isRunning ? "Menjalankan Simulasi..." : "Jalankan Simulasi"}
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={!simulationResults || !wsConnected}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" /> Gunakan Hasil & Buat Blueprint
               </button>
               <button
                 onClick={onSkipSimulation}
                 disabled={!wsConnected}
                 className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                <FastForward className="w-4 h-4" /> Skip to Action Plan
+                <FastForward className="w-4 h-4" /> Lewati ke Blueprint
               </button>
-            </div>
-          </div>
-
-          <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
-              <Brain className="w-4 h-4 text-[#4648d4]" /> Expert Analysis
-            </h4>
-            <div className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto space-y-2 pr-1">
-              {simulationData?.expert_analysis ? (
-                simulationData.expert_analysis
-                  .split("\n")
-                  .filter(Boolean)
-                  .map((line, i) => {
-                    const isRole = line.match(/^\[.*?\]:/);
-                    if (isRole)
-                      return (
-                        <div
-                          key={i}
-                          className="font-semibold text-[#4648d4] mt-2"
-                        >
-                          {line.split(":")[0]}:
-                        </div>
-                      );
-                    return (
-                      <div key={i} className="pl-2 border-l-2 border-slate-200">
-                        {line}
-                      </div>
-                    );
-                  })
-              ) : (
-                <p className="text-slate-400 italic">
-                  No expert analysis available
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -1009,11 +1032,10 @@ function SimulationView({
                 <Gauge className="w-8 h-8 text-[#4648d4]/40" />
               </div>
               <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                Simulation Results
+                Hasil Simulasi
               </h3>
               <p className="text-sm text-slate-500 max-w-md">
-                Adjust parameters and run the simulation, or skip directly to
-                the Action Plan using the discussion data.
+                Sesuaikan parameter dan jalankan simulasi, atau lewati langsung ke Blueprint menggunakan data diskusi.
               </p>
             </div>
           ) : (
@@ -1033,7 +1055,7 @@ function SimulationView({
                         <span
                           className={`text-xs font-bold px-2 py-0.5 rounded-full ${getRiskStyles(simulationResults.operational_impact.risk_level).badge}`}
                         >
-                          Risk:{" "}
+                          Risiko:{" "}
                           {(
                             simulationResults.operational_impact.risk_level ||
                             "normal"
@@ -1073,8 +1095,7 @@ function SimulationView({
 
               <div>
                 <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#4648d4]" /> Key
-                  Performance Indicators
+                  <BarChart3 className="w-4 h-4 text-[#4648d4]" /> Indikator Kinerja Utama (KPI)
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {simulationResults.kpis &&
@@ -1111,7 +1132,7 @@ function SimulationView({
                   ) : (
                     <div className="col-span-3 text-center py-8 text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
                       <BarChart3 className="w-6 h-6 mx-auto mb-2 opacity-40" />
-                      <p>No KPIs available for this domain</p>
+                      <p>Tidak ada KPI untuk domain ini</p>
                     </div>
                   )}
                 </div>
@@ -1119,14 +1140,13 @@ function SimulationView({
 
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-[#4648d4]" /> Base
-                  Calculations
+                  <Calculator className="w-4 h-4 text-[#4648d4]" /> Perhitungan Dasar
                 </h3>
                 <div className="space-y-3">
                   {simulationResults.base_calculations &&
                   Object.keys(simulationResults.base_calculations).length >
                     0 ? (
-                    Object.entries(simulationResults.base_calculations).map(
+                    Object.entries(simulationResults.base_calculations).slice(0, 10).map(
                       ([key, data]) => (
                         <div
                           key={key}
@@ -1141,7 +1161,7 @@ function SimulationView({
                             <p className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
                               {formatKpiName(key)}
                             </p>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">
+                            <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
                               {data.formula} = {data.substitution}
                             </p>
                           </div>
@@ -1158,7 +1178,7 @@ function SimulationView({
                     )
                   ) : (
                     <p className="text-sm text-slate-400 italic">
-                      No base calculations available
+                      Tidak ada perhitungan dasar
                     </p>
                   )}
                 </div>
@@ -1166,8 +1186,7 @@ function SimulationView({
 
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-[#4648d4]" /> Scenario
-                  Comparison
+                  <Scale className="w-4 h-4 text-[#4648d4]" /> Perbandingan Skenario
                 </h3>
                 <div className="space-y-5">
                   {simulationResults.scenario_comparison &&
@@ -1216,7 +1235,7 @@ function SimulationView({
                             <div className="space-y-1.5">
                               <div className="flex items-center gap-3">
                                 <span className="text-[10px] text-slate-500 w-14 text-right font-medium">
-                                  Original
+                                  Asli
                                 </span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                   <div
@@ -1232,7 +1251,7 @@ function SimulationView({
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className="text-[10px] text-slate-500 w-14 text-right font-medium">
-                                  Adjusted
+                                  Disesuaikan
                                 </span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                   <div
@@ -1253,136 +1272,9 @@ function SimulationView({
                     )
                   ) : (
                     <div className="text-center py-6 text-slate-400 text-sm">
-                      <p>
-                        No comparison data. Adjust parameters to see
-                        comparisons.
-                      </p>
+                      <p>Sesuaikan parameter untuk melihat perbandingan.</p>
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-[#4648d4]" /> Parameter
-                    Impact (%)
-                  </h4>
-                  <div className="space-y-3">
-                    {simulationResults.scenario_comparison &&
-                      Object.entries(simulationResults.scenario_comparison)
-                        .filter(([, data]) => data.change_percent !== undefined)
-                        .map(([key, data]) => {
-                          const pct = data.change_percent || 0;
-                          const isPos = pct >= 0;
-                          const color = isPos
-                            ? pct > 50
-                              ? "bg-red-500"
-                              : "bg-emerald-500"
-                            : "bg-[#4648d4]";
-                          const barWidth = Math.min(Math.abs(pct), 100);
-                          return (
-                            <div key={key} className="flex items-center gap-3">
-                              <span className="text-xs text-slate-600 w-32 truncate font-medium">
-                                {formatKpiName(key)}
-                              </span>
-                              <div className="flex-1 h-6 bg-slate-50 rounded-lg overflow-hidden relative">
-                                <div
-                                  className={`absolute top-0 h-full ${color} rounded-lg transition-all duration-700 flex items-center justify-end px-2`}
-                                  style={{
-                                    width: `${barWidth}%`,
-                                    left: isPos ? "0" : `${100 - barWidth}%`,
-                                  }}
-                                >
-                                  {barWidth > 15 && (
-                                    <span className="text-[10px] font-bold text-white">
-                                      {isPos ? "+" : ""}
-                                      {pct}%
-                                    </span>
-                                  )}
-                                </div>
-                                {barWidth <= 15 && (
-                                  <span className="absolute inset-0 flex items-center pl-2 text-[10px] font-bold text-slate-600">
-                                    {isPos ? "+" : ""}
-                                    {pct}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                    <PieChart className="w-4 h-4 text-[#4648d4]" /> Value
-                    Comparison
-                  </h4>
-                  <div className="space-y-3">
-                    {simulationResults.scenario_comparison &&
-                      Object.entries(simulationResults.scenario_comparison)
-                        .filter(
-                          ([, data]) =>
-                            data.original !== undefined &&
-                            data.adjusted !== undefined,
-                        )
-                        .slice(0, 6)
-                        .map(([key, data]) => {
-                          const max = Math.max(
-                            Math.abs(data.original),
-                            Math.abs(data.adjusted),
-                            1,
-                          );
-                          return (
-                            <div key={key}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-slate-600 font-medium">
-                                  {formatKpiName(key)}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {formatNumber(data.adjusted)} vs{" "}
-                                  {formatNumber(data.original)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 h-4">
-                                <div
-                                  className="h-full bg-slate-300 rounded-l-md transition-all duration-700"
-                                  style={{
-                                    width: `${(Math.abs(data.original) / max) * 50}%`,
-                                  }}
-                                />
-                                <div
-                                  className="h-full bg-[#4648d4] rounded-r-md transition-all duration-700"
-                                  style={{
-                                    width: `${(Math.abs(data.adjusted) / max) * 50}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">
-                      Proceed to Action Plan?
-                    </h4>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Simulation results will be used as the basis for strategic
-                      recommendations and SOP.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onConfirmSimulation(simulationResults)}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Confirm & Proceed{" "}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -1393,1164 +1285,439 @@ function SimulationView({
   );
 }
 
+
 // ==========================================
 // MAIN APP COMPONENT
 // ==========================================
 export default function App() {
   const { accounts } = useMsal();
-  const [view, setView] = useState("home");
-  const [input, setInput] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [messages, setMessages] = useState([]);
-  const [isWaitingUser, setIsWaitingUser] = useState(false);
-  const [modQuestion, setModQuestion] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [extractedDocText, setExtractedDocText] = useState("");
-  const [isProcessingFile, setIsProcessingFile] = useState(false);
-  const [fileUploadError, setFileUploadError] = useState("");
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [result, setResult] = useState({ content: "", files: {} });
-  const [currentLog, setCurrentLog] = useState(
-    "System initialized. Awaiting user input...",
-  );
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
-  const [pptSlides, setPptSlides] = useState([]);
-  const [isPptPreviewOpen, setIsPptPreviewOpen] = useState(false);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [activeAgent, setActiveAgent] = useState(null);
-  const [discussionPhase, setDiscussionPhase] = useState("idle");
+  const isAuthenticated = accounts && accounts.length > 0;
+
   const [problemText, setProblemText] = useState("");
+  const [clarificationText, setClarificationText] = useState("");
+  
+  const [ws, setWs] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  
+  const [phase, setPhase] = useState("idle");
+  const [progress, setProgress] = useState(0);
+  const [agents, setAgents] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [activeAgent, setActiveAgent] = useState("");
+  
+  const [moderatorQuestion, setModeratorQuestion] = useState("");
   const [simulationData, setSimulationData] = useState(null);
   const [simulationResults, setSimulationResults] = useState(null);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [hoveredNode, setHoveredNode] = useState(null);
+  const [finalBlueprint, setFinalBlueprint] = useState("");
+  const [files, setFiles] = useState({ pdf: "", ppt: "" });
+  
   const [apiError, setApiError] = useState(null);
-
-  const ws = useRef(null);
-
-  const uniqueAgentNames = Array.from(
-    new Set(messages.map((m) => m.agent).filter(Boolean)),
-  );
-  const visibleAgents = uniqueAgentNames.map((name, idx) => {
-    const styleObj = AGENT_STYLE_POOL[idx % AGENT_STYLE_POOL.length];
-    return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
-  });
-
-  const handleWsMessage = useCallback((event) => {
-    const data = JSON.parse(event.data);
-    if (data.progress) setProgress(data.progress);
-
-    if (data.step === "error") {
-      const errCode = data.error_code || "ERROR_503_OVERLOAD";
-      setApiError(errCode);
-      setCurrentLog(`System Error: ${errCode}`);
-      if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
-        setDiscussionPhase("idle");
-        setProgress(0);
-        setView("workspace");
-      }
-      return;
-    }
-
-    if (data.step === "roles") {
-      setCurrentLog("System assigning optimized multi-agent roles...");
-      setDiscussionPhase("roles");
-    } else if (data.step === "discussing") {
-      setMessages((prev) => [...prev, { agent: data.agent, text: data.text }]);
-      setActiveAgent(data.agent);
-      setCurrentLog(`${data.agent}: ${data.text.substring(0, 80)}...`);
-      setDiscussionPhase("discussing");
-    } else if (data.step === "ask_user") {
-      setIsWaitingUser(true);
-      setModQuestion(data.text);
-      setCurrentLog("Moderator interaction requested. Discussion paused.");
-      setDiscussionPhase("moderating");
-      setActiveAgent("user");
-    } else if (data.step === "simulation_ready") {
-      setSimulationData(data.simulation_data);
-      setSimulationResults(null);
-      setView("simulation");
-      setCurrentLog(
-        "Simulation engine initialized. Ready for scenario modeling.",
-      );
-      setDiscussionPhase("simulation");
-      setActiveAgent(null);
-    } else if (data.step === "simulation_result") {
-      setSimulationResults(data.scenario_results);
-      setCurrentLog("Simulation completed. Scenario analysis ready.");
-    } else if (data.step === "final") {
-      setResult({ content: data.content, files: data.files });
-      if (data.slides_preview) setPptSlides(data.slides_preview);
-      setView("summary");
-      setCurrentLog(
-        "Analysis completed. Final quantitative reports generated.",
-      );
-      setDiscussionPhase("final");
-      setActiveAgent(null);
-    }
-  }, []);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileData, setUploadedFileData] = useState(null);
+  
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [zoomLevel] = useState(1);
 
   useEffect(() => {
-    const link = document.createElement("link");
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-
-    const handleMouseMove = (e) => {
-      const pattern = document.querySelector(".hero-pattern");
-      if (pattern) {
-        const moveX = (e.clientX / window.innerWidth) * 20;
-        const moveY = (e.clientY / window.innerHeight) * 20;
-        pattern.style.backgroundPosition = `${moveX}px ${moveY}px`;
-      }
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-
-    ws.current = new WebSocket(
-      "ws://127.0.0.1:8000/ws",
-    );
-    ws.current.onmessage = handleWsMessage;
-    ws.current.onopen = () => {
+    if (!isAuthenticated) return;
+    
+    const socket = new WebSocket(WS_URL);
+    
+    socket.onopen = () => {
       setWsConnected(true);
-      setCurrentLog("WebSocket connected. Engine ready.");
+      console.log("WebSocket Connected");
     };
-    ws.current.onclose = () => {
+    
+    socket.onclose = () => {
       setWsConnected(false);
-      setCurrentLog("WebSocket disconnected.");
+      console.log("WebSocket Disconnected");
     };
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (ws.current) ws.current.close();
-    };
-  }, [handleWsMessage]);
-
-  // ==========================================
-  // FILE UPLOAD, PASTE, & DRAG-DROP PROCESSOR
-  // ==========================================
-  const processFile = async (file) => {
-    if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE_FRONTEND) {
-      setFileUploadError("File terlalu besar. Ukuran maksimal: 2MB");
-      setCurrentLog("❌ File upload rejected: exceeds 2MB limit");
-      setIsProcessingFile(false);
-      return;
-    }
-
-    setSelectedFile(file);
-    setFileUploadError("");
-    setExtractedDocText("");
-    setIsProcessingFile(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch(
-        "http://127.0.0.1:8000/upload",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-
-      if (!response.ok) {
-        const errData = await response
-          .json()
-          .catch(() => ({ detail: "Upload failed" }));
-        throw new Error(errData.detail || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.extracted_text) {
-        setExtractedDocText(data.extracted_text);
-        setCurrentLog(
-          `📄 File "${file.name || "pasted_image.png"}" berhasil dibaca. ${data.char_count} karakter diekstrak.`,
-        );
-      } else {
-        setExtractedDocText(
-          data.extracted_text || "[Gagal mengekstrak teks dari dokumen]",
-        );
-        setFileUploadError(
-          data.extracted_text || "Gagal membaca konten dokumen.",
-        );
-        setCurrentLog(
-          `⚠️ File "${file.name || "pasted_image.png"}" terbaca tapi teks tidak bisa diekstrak.`,
-        );
-      }
-    } catch (err) {
-      console.error("File upload error:", err);
-      setFileUploadError(err.message || "Gagal mengunggah file");
-      setCurrentLog(`❌ Gagal mengunggah file: ${err.message}`);
-    } finally {
-      setIsProcessingFile(false);
-    }
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) processFile(file);
-  };
-
-  const removeFile = () => {
-    setSelectedFile(null);
-    setExtractedDocText("");
-    setFileUploadError("");
-  };
-
-  const handlePaste = (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) {
-          const namedFile = new File([file], `pasted_image_${Date.now()}.png`, {
-            type: file.type,
-          });
-          processFile(namedFile);
-        }
+    
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.step === "api_error") {
+        setApiError(data.error_code);
+        setPhase("idle");
+        setProgress(0);
         return;
       }
-    }
-  };
+      
+      setProgress(data.progress || 0);
+      
+      switch(data.step) {
+        case "roles":
+          setPhase("roles");
+          break;
+        case "discussing":
+          setPhase("discussing");
+          if (data.agent && data.text) {
+            setActiveAgent(data.agent);
+            setMessages(prev => [...prev, { agent: data.agent, text: data.text }]);
+            
+            if (!agents.find(a => a.name === data.agent)) {
+              const styleIdx = agents.length % AGENT_STYLE_POOL.length;
+              const style = AGENT_STYLE_POOL[styleIdx];
+              setAgents(prev => [...prev, {
+                id: `agent-${prev.length}`,
+                name: data.agent,
+                color: style.color,
+                bgColor: style.bgColor,
+                lucideIcon: style.lucideIcon,
+                subtitle: style.subtitle
+              }]);
+            }
+          }
+          break;
+        case "moderating":
+          setPhase("moderating");
+          setActiveAgent("Moderator");
+          break;
+        case "ask_user":
+          setPhase("moderating");
+          setModeratorQuestion(data.text);
+          break;
+        case "simulation_ready":
+          setPhase("simulation");
+          setSimulationData(data.simulation_data);
+          setSimulationResults(null);
+          break;
+        case "simulation_result":
+          setSimulationResults(data.scenario_results);
+          break;
+        case "final":
+          setPhase("final");
+          setFinalBlueprint(data.content || "");
+          setFiles(data.files || { pdf: "", ppt: "" });
+          break;
+      }
+    };
+    
+    setWs(socket);
+    
+    return () => {
+      socket.close();
+    };
+  }, [isAuthenticated]);
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      processFile(files[0]);
-    }
-  };
-
-  // ==========================================
-  // START PROCESS
-  // ==========================================
-  const startProcess = () => {
-    if (!input.trim() && !extractedDocText) return;
-    setView("discussion");
+  const handleStartSimulation = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     setMessages([]);
-    setProgress(10);
-    setCurrentLog("Initiating quantitative orchestration engine...");
-    setDiscussionPhase("roles");
-    setActiveAgent(null);
+    setAgents([]);
+    setFinalBlueprint("");
     setSimulationData(null);
     setSimulationResults(null);
-
-    let pText = "";
-
-    if (extractedDocText) {
-      const fileTypeInfo = getFileTypeInfo(selectedFile?.name);
-      pText += `[ISI DOKUMEN UPLOAD: ${selectedFile?.name || "pasted_image.png"} (${fileTypeInfo.label})]\n`;
-      pText += "═══════════════════════════════════════\n";
-      pText += extractedDocText;
-      pText += "\n═══════════════════════════════════════\n\n";
+    setFiles({ pdf: "", ppt: "" });
+    setPhase("roles");
+    setProgress(5);
+    
+    let payload = problemText;
+    if (uploadedFileData) {
+      payload += `\n\nISI DOKUMEN (${uploadedFileData.filename}):\n${uploadedFileData.extracted_text}`;
     }
-
-    if (input.trim()) {
-      if (extractedDocText) {
-        pText += `[CATATAN TAMBAHAN USER]: ${input.trim()}`;
-      } else {
-        pText += input.trim();
-      }
-    }
-
-    setProblemText(pText.substring(0, 100) + (pText.length > 100 ? "..." : ""));
-
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ type: "start", problem: pText }));
-    }
-    setInput("");
+    
+    ws.send(JSON.stringify({
+      type: "start",
+      problem: payload
+    }));
   };
 
-  const sendAnswer = () => {
-    if (!input.trim()) return;
-    setIsWaitingUser(false);
-    setCurrentLog("User response injected. Resuming discussion pathways...");
-    setDiscussionPhase("discussing");
-    setActiveAgent(null);
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ type: "answer", text: input }));
-    }
-    setInput("");
+  const handleSendClarification = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !clarificationText.trim()) return;
+    ws.send(JSON.stringify({
+      type: "answer",
+      text: clarificationText.trim()
+    }));
+    setClarificationText("");
+    setModeratorQuestion("");
   };
 
-  const handleRunSimulation = (adjustedParams) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(
-        JSON.stringify({
-          type: "run_simulation",
-          adjusted_params: adjustedParams,
-        }),
-      );
-    }
+  const handleRunSimulation = (adjusted_params) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: "run_simulation",
+      adjusted_params: adjusted_params
+    }));
   };
 
-  const handleConfirmSimulation = (simulationSummary) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(
-        JSON.stringify({
-          type: "confirm_simulation",
-          simulation_summary: simulationSummary,
-        }),
-      );
-    }
-    setCurrentLog("Simulation confirmed. Compiling Action Plan & SOP...");
+  const handleConfirmSimulation = (sim_summary) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: "confirm_simulation",
+      simulation_summary: sim_summary
+    }));
   };
 
   const handleSkipSimulation = () => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ type: "skip_simulation" }));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: "skip_simulation" }));
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setApiError("ERROR_400_INVALID"); // Using generic error UI for size limit
+      return;
     }
-    setCurrentLog(
-      "Skipping simulation. Compiling Action Plan from discussion data...",
-    );
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+      
+      const data = await res.json();
+      setUploadedFileData(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingFile(false);
+    }
   };
 
-  const formatBlueprint = (text) => {
-    if (!text) return "";
-    return text
-      .replace(/(Rp [\d.,]+)/g, '<span class="num-highlight">$1</span>')
-      .replace(
-        /(\d{1,3}(?:\.\d{3})*(?:,\d+)?\s*(?:pieces|orang|jam|hari|bulan|%))/gi,
-        '<span class="num-highlight">$1</span>',
-      )
-      .replace(
-        /(\d+\s*[+\-×÷/]\s*\d+\s*=\s*[\d.,]+)/g,
-        '<span class="formula-highlight">$1</span>',
-      );
-  };
+  if (!isAuthenticated) {
+    return <AuthGuardScreen />;
+  }
 
-  // ==========================================
-  // RENDER
-  // ==========================================
-
-  // AUTH GUARD: Jika belum login, tampilkan halaman login penuh
-  if (accounts.length === 0) {
+  // Render Final Blueprint & File Downloads
+  if (phase === "final") {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-          .hero-pattern { background-image: radial-gradient(circle at 2px 2px, #e1e3e4 1px, transparent 0); background-size: 40px 40px; }
-          @keyframes fadeIn { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
-          .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-        `}</style>
-        <AuthGuardScreen />
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <ApiErrorModal errorCode={apiError} onClose={() => setApiError(null)} />
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <img src={logoArgunex} alt="Logo" className="h-8 w-auto" />
+            <span className="font-bold text-slate-900">Argunex AI</span>
+          </div>
+          <UserProfileDropdown />
+        </header>
+        
+        <div className="flex-1 max-w-5xl mx-auto w-full p-8">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Strategic Action Resolution Blueprint</h2>
+                <p className="text-xs text-slate-500">Final output generated by Multi-Agent Committee</p>
+              </div>
+            </div>
+            
+            <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-wrap">
+              {finalBlueprint}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <a
+              href={files.pdf ? `${BACKEND_URL}${files.pdf}` : '#'}
+              download="report.pdf"
+              className={`flex items-center justify-center gap-3 p-5 rounded-xl border-2 transition-all ${files.pdf ? 'border-red-200 bg-red-50 hover:bg-red-100 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-400 pointer-events-none'}`}
+            >
+              <FileText className="w-6 h-6" />
+              <div className="text-left">
+                <p className="font-bold text-sm">Download PDF</p>
+                <p className="text-[10px] opacity-80">Laporan lengkap format dokumen</p>
+              </div>
+            </a>
+            <a
+              href={files.ppt ? `${BACKEND_URL}${files.ppt}` : '#'}
+              download="report.pptx"
+              className={`flex items-center justify-center gap-3 p-5 rounded-xl border-2 transition-all ${files.ppt ? 'border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700' : 'border-slate-200 bg-slate-50 text-slate-400 pointer-events-none'}`}
+            >
+              <Layers className="w-6 h-6" />
+              <div className="text-left">
+                <p className="font-bold text-sm">Download PPTX</p>
+                <p className="text-[10px] opacity-80">Presentasi strategi eksekutif</p>
+              </div>
+            </a>
+          </div>
+
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => {
+                setPhase("idle");
+                setProblemText("");
+                setMessages([]);
+                setAgents([]);
+                setFinalBlueprint("");
+                setUploadedFileData(null);
+                setProgress(0);
+              }}
+              className="px-6 py-3 bg-[#4648d4] text-white rounded-xl font-semibold text-sm hover:bg-[#3638b0] transition-colors shadow-md"
+            >
+              Mulai Sesi Baru
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "simulation") {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <ApiErrorModal errorCode={apiError} onClose={() => setApiError(null)} />
+        <SimulationView
+          simulationData={simulationData}
+          simulationResults={simulationResults}
+          onRunSimulation={handleRunSimulation}
+          onConfirmSimulation={handleConfirmSimulation}
+          onSkipSimulation={handleSkipSimulation}
+          onBackToDiscussion={() => setPhase("discussing")}
+          wsConnected={wsConnected}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        .hero-pattern { background-image: radial-gradient(circle at 2px 2px, #e1e3e4 1px, transparent 0); background-size: 40px 40px; }
-        .glass-panel { backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.85); }
-        .node-pulse { animation: pulse-ring 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse-ring { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 0.4; } 100% { transform: scale(0.95); opacity: 0.8; } }
-        .num-highlight { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background-color: #eef2ff; color: #4338ca; padding: 1px 4px; border-radius: 4px; font-weight: 600; font-size: 0.95em; }
-        .formula-highlight { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background-color: #f0fdf4; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-        .phase-indicator { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .agent-card { transition: all 0.3s ease; }
-        .agent-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(70, 72, 212, 0.15); }
-        .progress-glow { box-shadow: 0 0 20px rgba(70, 72, 212, 0.3); }
-        input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: #e2e8f0; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #4648d4; cursor: pointer; border: 2.5px solid white; box-shadow: 0 2px 6px rgba(70, 72, 212, 0.35); transition: transform 0.15s; }
-        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-        input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #4648d4; cursor: pointer; border: 2.5px solid white; box-shadow: 0 2px 6px rgba(70, 72, 212, 0.35); }
-        @keyframes slideDown { 0% { transform: translate(-50%, -20px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
-        .animate-slideDown { animation: slideDown 0.3s ease-out forwards; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes fadeIn { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-      `}</style>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <ApiErrorModal errorCode={apiError} onClose={() => setApiError(null)} />
+      
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-50">
+        <div className="flex items-center gap-3">
+          <img src={logoArgunex} alt="Logo" className="h-8 w-auto" />
+          <span className="font-bold text-slate-900">Argunex AI</span>
+        </div>
+        <UserProfileDropdown />
+      </header>
 
-      {/* ADVANCED API ERROR HANDLING — VISUAL ALERT MODAL */}
-      {apiError && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-100 animate-fadeIn">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <AlertOctagon className="w-5 h-5 text-red-500" />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Input & Chat */}
+        <div className="w-[480px] flex flex-col border-r border-slate-200 bg-white">
+          <div className="p-6 border-b border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-[#4648d4]" /> Input Masalah Operasional
+            </h2>
+            
+            <div className="relative mb-4">
+              <textarea
+                rows={6}
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm text-slate-900 resize-none focus:ring-2 focus:ring-[#4648d4] focus:border-transparent transition-all"
+                placeholder="Jelaskan masalah operasional yang ingin dianalisis..."
+                value={problemText}
+                onChange={(e) => setProblemText(e.target.value)}
+                maxLength={1500}
+                disabled={phase !== "idle"}
+              />
+              <div className="absolute bottom-3 right-3 text-[10px] text-slate-400 font-mono">
+                {problemText.length}/1500
               </div>
-              <h3 className="text-lg font-bold text-slate-900">System Alert</h3>
             </div>
-            <p className="text-sm text-slate-600 leading-relaxed mb-6">
-              {ERROR_MESSAGES[apiError] || "Terjadi kesalahan pada sistem. Silakan coba lagi."}
-            </p>
+
+            <div className="flex items-center gap-3 mb-4">
+              <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed ${uploadedFileData ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 hover:border-[#4648d4]'} rounded-xl cursor-pointer transition-colors ${phase !== "idle" ? 'pointer-events-none opacity-50' : ''}`}>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept=".docx,.doc,.xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                  onChange={handleFileUpload}
+                  disabled={phase !== "idle" || uploadingFile}
+                />
+                {uploadingFile ? (
+                  <RefreshCcw className="w-4 h-4 animate-spin text-[#4648d4]" />
+                ) : uploadedFileData ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <UploadCloud className="w-4 h-4 text-slate-400" />
+                )}
+                <span className="text-xs font-semibold text-slate-600">
+                  {uploadingFile ? "Mengunggah..." : uploadedFileData ? uploadedFileData.filename : "Unggah Dokumen (Maks 2MB)"}
+                </span>
+              </label>
+            </div>
+
             <button
-              onClick={() => setApiError(null)}
-              className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors"
+              onClick={handleStartSimulation}
+              disabled={!problemText.trim() || !wsConnected || phase !== "idle"}
+              className="w-full py-3 bg-[#4648d4] hover:bg-[#3638b0] disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              Tutup
+              <Play className="w-4 h-4" /> Mulai Analisis Multi-Agent
             </button>
           </div>
-        </div>
-      )}
 
-      {/* NAV */}
-      <nav className="bg-white/80 backdrop-blur-xl border-b border-[#e1e3e4] sticky top-0 z-50">
-        <div className="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
-          <div className="flex items-center gap-8">
-            <img
-              src={logoArgunex}
-              alt="Argunex AI Logo"
-              className="h-12 w-auto cursor-pointer object-contain transition-transform duration-200 hover:scale-105"
-              onClick={() => setView("home")}
-            />
-            <div className="hidden md:flex gap-6">
-              <button
-                onClick={() => setView("workspace")}
-                className={`font-medium py-1 transition-colors ${view === "workspace" ? "text-[#4648d4] border-b-2 border-[#4648d4]" : "text-[#464554] hover:text-[#4648d4]"}`}
-              >
-                Workspace
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {discussionPhase !== "idle" && (
-              <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${getPhaseStyle(discussionPhase)}`}
-              >
-                {getPhaseIcon(discussionPhase)} {discussionPhase.toUpperCase()}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {messages.map((msg, idx) => (
+              <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <p className="text-xs font-bold text-[#4648d4] mb-1">{msg.agent}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{msg.text}</p>
               </div>
-            )}
-
-            {/* USER PROFILE DROPDOWN: Avatar + Logout + Ganti Akun */}
-            <UserProfileDropdown />
-          </div>
-        </div>
-      </nav>
-
-      <main className="relative">
-        {/* ==================== HOME ==================== */}
-        {view === "home" && (
-          <div className="relative min-h-[calc(100vh-72px)] flex flex-col items-center px-6 py-20 md:py-28 hero-pattern">
-            <div className="max-w-5xl mx-auto z-10 text-center mb-24">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#4648d4]/10 text-[#4648d4] rounded-full mb-8 border border-[#4648d4]/20 shadow-inner">
-                <Sparkles className="w-4 h-4 node-pulse" />
-                <span className="text-sm font-bold uppercase tracking-widest">
-                  Enterprise Architecture Engine
-                </span>
-              </div>
-              <h1 className="text-6xl md:text-7xl font-extrabold text-[#191c1d] mb-8 leading-[1.1] tracking-tighter">
-                The Future of{" "}
-                <span className="text-[#4648d4]">Autonomous Orchestration</span>
-              </h1>
-              <p className="text-xl md:text-2xl text-[#464554] mb-14 max-w-3xl mx-auto leading-relaxed font-medium">
-                Deploy, visualize, and collaborate with specialized AI agents in
-                a unified workspace. Built for developers who demand surgical
-                precision and calm authority.
-              </p>
-              <button
-                onClick={() => setView("workspace")}
-                className="bg-white hover:bg-gray-50 border border-gray-200 text-[#4648d4] px-12 py-5 rounded-3xl flex items-center gap-4 font-extrabold text-xl shadow-2xl hover:shadow-indigo-100 transition-all transform hover:-translate-y-1 mx-auto group"
-              >
-                Launch System Engine
-                <span className="text-[#4648d4] text-2xl group-hover:translate-x-1.5 transition-transform font-bold">
-                  →
-                </span>
-              </button>
-            </div>
-            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-10 border-t border-gray-200 pt-16 z-10">
-              <div className="bg-white rounded-[32px] p-10 shadow-xl border border-gray-100 flex flex-col justify-between hover:shadow-2xl transition-all">
-                <div>
-                  <div className="flex items-center gap-5 mb-8">
-                    <div className="w-14 h-14 bg-[#4648d4]/10 text-[#4648d4] rounded-2xl flex items-center justify-center border border-[#4648d4]/20">
-                      <Brain className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-gray-950 text-2xl tracking-tight">
-                        Core Engine Specifications
-                      </h3>
-                      <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                        Quantitative Accuracy Mode
-                      </p>
-                    </div>
-                  </div>
-                  <ul className="space-y-6">
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium">
-                      <span className="w-3 h-3 rounded-full bg-[#4648d4] mt-2.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Chain-of-Thought Enforcement
-                        </strong>
-                        Setiap agen WAJIB menuliskan rumus matematis sebelum
-                        menyebutkan angka final, mencegah halusinasi kalkulasi.
-                      </div>
-                    </li>
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium">
-                      <span className="w-3 h-3 rounded-full bg-[#4648d4] mt-2.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Fact Grounding Lock
-                        </strong>
-                        Angka dari prompt user (gaji, kapasitas, jam kerja)
-                        dianggap sumber kebenaran mutlak yang dilarang diubah
-                        oleh AI.
-                      </div>
-                    </li>
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium">
-                      <span className="w-3 h-3 rounded-full bg-[#4648d4] mt-2.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Document Intelligence
-                        </strong>
-                        Membaca dan menganalisis isi dokumen Word, Excel, PDF,
-                        dan gambar secara langsung untuk ekstraksi data
-                        kuantitatif.
-                      </div>
-                    </li>
-                  </ul>
+            ))}
+            
+            {moderatorQuestion && phase === "moderating" && (
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Moderator Interruption</p>
                 </div>
-              </div>
-              <div className="bg-white rounded-[32px] p-10 shadow-xl border border-gray-100 flex flex-col justify-between hover:shadow-2xl transition-all">
-                <div>
-                  <div className="flex items-center gap-5 mb-8">
-                    <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center border border-emerald-100">
-                      <BarChart3 className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-gray-950 text-2xl tracking-tight">
-                        Argunex AI vs Regular Chatbots
-                      </h3>
-                      <p className="text-sm text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                        Advanced Architecture Power
-                      </p>
-                    </div>
-                  </div>
-                  <ul className="space-y-5">
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <Cpu className="w-6 h-6 text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Math-Aware Multi-Agent Debate
-                        </strong>
-                        Bukan opini bebas, melainkan perdebatan terstruktur
-                        dengan verifikasi rumus di setiap langkah.
-                      </div>
-                    </li>
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <Shield className="w-6 h-6 text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Human-in-the-Loop Interruption
-                        </strong>
-                        Moderator hanya bertanya jika ada parameter kuantitatif
-                        yang benar-benar hilang, bukan mengulang hal yang sudah
-                        jelas.
-                      </div>
-                    </li>
-                    <li className="flex gap-4 items-start text-base text-gray-800 leading-relaxed font-medium p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <FileText className="w-6 h-6 text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <strong className="text-gray-950 font-extrabold text-lg block mb-0.5">
-                          Document-Aware Analysis
-                        </strong>
-                        Bisa membaca isi file Excel, Word, PDF, dan gambar —
-                        bahkan via Paste (Ctrl+V) atau Drag & Drop.
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== WORKSPACE ==================== */}
-        {view === "workspace" && (
-          <div className="flex-grow flex flex-col items-center justify-center px-6 py-16 relative">
-            <div className="w-full max-w-3xl flex flex-col items-center text-center gap-4 mb-12">
-              <h1 className="text-4xl font-bold tracking-tight text-[#191c1d]">
-                How can <span className="text-[#4648d4]">Argunex AI</span>{" "}
-                assist your workflow today?
-              </h1>
-              <p className="text-lg text-[#464554]">
-                Upload, Paste, or Drag & Drop your documents here.
-              </p>
-            </div>
-            <div className="w-full max-w-3xl relative">
-              <div
-                className={`bg-white rounded-3xl p-4 flex flex-col gap-4 border shadow-lg transition-all ${isDraggingOver ? "border-[#4648d4] border-2 shadow-[0_0_30px_rgba(70,72,212,0.2)]" : "border-[#e1e3e4]"}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                {isDraggingOver && (
-                  <div className="absolute inset-0 bg-[#4648d4]/5 backdrop-blur-sm rounded-3xl z-10 flex flex-col items-center justify-center pointer-events-none">
-                    <UploadCloud className="w-16 h-16 text-[#4648d4] mb-4 animate-bounce" />
-                    <p className="text-xl font-bold text-[#4648d4]">
-                      Drop your file here
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Word, Excel, PDF, or Image
-                    </p>
-                  </div>
-                )}
-
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      startProcess();
-                    }
-                  }}
-                  onPaste={handlePaste}
-                  maxLength={MAX_INPUT_LENGTH}
-                  className="w-full border-none focus:ring-0 text-base bg-transparent resize-none p-2 placeholder:text-gray-400 outline-none h-32"
-                  placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)"
-                />
-
-                {/* REAL-TIME CHARACTER COUNTER — MASALAH UTAMA */}
-                <div className="flex justify-end px-2">
-                  <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
-                    {input.length}/{MAX_INPUT_LENGTH}
-                  </span>
-                </div>
-
-                {selectedFile && (
-                  <div className="mx-2 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-fadeIn">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const ft = getFileTypeInfo(selectedFile.name);
-                          const FtIcon = ft.icon;
-                          return <FtIcon className={`w-5 h-5 ${ft.color}`} />;
-                        })()}
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-[10px] text-slate-500">
-                            {getFileTypeInfo(selectedFile.name).label} •{" "}
-                            {(selectedFile.size / 1024).toFixed(1)} KB
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={removeFile}
-                        className="text-red-500 hover:text-red-700 text-xs font-semibold p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {isProcessingFile && (
-                      <div className="flex items-center gap-2 mt-2 text-sm text-indigo-600">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="font-medium">
-                          Membaca isi dokumen...
-                        </span>
-                      </div>
-                    )}
-
-                    {fileUploadError && !isProcessingFile && (
-                      <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-start gap-2">
-                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                        <span>{fileUploadError}</span>
-                      </div>
-                    )}
-
-                    {extractedDocText && !isProcessingFile && (
-                      <div className="mt-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                            Dokumen berhasil dibaca •{" "}
-                            {extractedDocText.length.toLocaleString()} karakter
-                          </span>
-                        </div>
-                        <details className="mt-1">
-                          <summary className="text-xs text-slate-500 cursor-pointer hover:text-[#4648d4] font-medium transition-colors">
-                            👁️ Preview isi dokumen yang diekstrak
-                          </summary>
-                          <div className="mt-2 p-3 bg-white rounded-xl border border-slate-200 max-h-48 overflow-y-auto">
-                            <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed">
-                              {extractedDocText.substring(0, 2000)}
-                              {extractedDocText.length > 2000
-                                ? "\n\n[... sisa teks dipotong untuk preview ...]"
-                                : ""}
-                            </pre>
-                          </div>
-                        </details>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center px-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <label
-                      className={`flex items-center gap-2 px-4 py-2.5 ${isProcessingFile ? "bg-slate-100 text-slate-400" : "bg-[#f3f4f5] hover:bg-gray-200 text-[#464554]"} rounded-xl transition-all cursor-pointer text-xs font-bold border border-gray-200 shadow-sm active:scale-95 shrink-0 ${isProcessingFile ? "pointer-events-none" : ""}`}
-                    >
-                      <span className="text-[18px]">📄</span>
-                      <span>
-                        {isProcessingFile ? "Membaca..." : "Upload Dokumen"}
-                      </span>
-                      <input
-                        type="file"
-                        accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        disabled={isProcessingFile}
-                      />
-                    </label>
-                    <span className="text-[11px] text-gray-400 font-medium leading-tight">
-                      Upload, Paste (Ctrl+V), or Drag & Drop • Word, Excel, PDF,
-                      PNG, JPG • Max 2MB
-                    </span>
-                  </div>
-                  <button
-                    onClick={startProcess}
-                    disabled={
-                      isProcessingFile || (!input.trim() && !extractedDocText)
-                    }
-                    className="bg-[#4648d4] text-white h-11 w-11 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-md shrink-0 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  >
-                    <span className="font-bold text-lg">↑</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== DISCUSSION ==================== */}
-        {view === "discussion" && (
-          <div className="h-[calc(100vh-72px)] flex flex-col p-4 md:p-6 relative bg-slate-50">
-            <div className="w-full bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#4648d4]" />
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    Orchestration Progress
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-[#4648d4]">
-                  {progress}%
-                </span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#4648d4] to-[#6063ee] transition-all duration-700 rounded-full progress-glow"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-            <div className="flex-1 flex gap-4 min-h-0">
-              <div className="flex-1 bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden relative">
-                <div className="absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-sm">
-                  <Network className="w-4 h-4 text-[#4648d4]" />
-                  <span className="text-xs font-bold text-slate-700">
-                    Multi-Agent Network
-                  </span>
-                </div>
-                <div className="absolute top-4 right-4 z-10">
-                  <div
-                    className={`phase-indicator flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold shadow-sm ${getPhaseStyle(discussionPhase)}`}
-                  >
-                    {getPhaseIcon(discussionPhase)}{" "}
-                    {discussionPhase.toUpperCase()}
-                  </div>
-                </div>
-                <NetworkGraph
-                  zoomLevel={zoomLevel}
-                  activeAgent={activeAgent}
-                  hoveredNode={hoveredNode}
-                  setHoveredNode={setHoveredNode}
-                  problemText={problemText}
-                  agents={visibleAgents}
-                />
-                <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1">
-                  <button
-                    onClick={() => setZoomLevel((z) => Math.min(z + 0.2, 1.8))}
-                    className="w-9 h-9 bg-white/90 rounded-lg border border-slate-200 flex items-center justify-center shadow-sm hover:bg-white text-slate-700"
-                  >
-                    <Plus size={16} />
-                  </button>
-                  <button
-                    onClick={() => setZoomLevel((z) => Math.max(z - 0.2, 0.5))}
-                    className="w-9 h-9 bg-white/90 rounded-lg border border-slate-200 flex items-center justify-center shadow-sm hover:bg-white text-slate-700"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <button
-                    onClick={() => setZoomLevel(1)}
-                    className="w-9 h-9 bg-white/90 rounded-lg border border-slate-200 flex items-center justify-center shadow-sm hover:bg-white text-slate-700"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                </div>
-              </div>
-              <div className="w-80 flex flex-col gap-4">
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex-1 overflow-y-auto">
-                  <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#4648d4]" /> Agent Status
-                  </h3>
-                  <div className="space-y-3">
-                    {visibleAgents.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-slate-400">
-                        <Activity className="w-5 h-5 animate-pulse mb-2 opacity-60" />
-                        <span className="text-xs font-medium italic">
-                          Awaiting AI network allocation...
-                        </span>
-                      </div>
-                    ) : (
-                      visibleAgents.map((agent) => {
-                        const agentMessages = messages.filter(
-                          (m) => m.agent === agent.name,
-                        );
-                        const latestMsg =
-                          agentMessages[agentMessages.length - 1];
-                        const status =
-                          activeAgent === agent.name ? "active" : "completed";
-                        return (
-                          <div
-                            key={agent.id}
-                            className={`agent-card p-3 rounded-xl border ${getAgentCardStyle(status)}`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`w-2 h-2 rounded-full ${getStatusDot(status)}`}
-                                />
-                                <span className="text-xs font-bold text-slate-700">
-                                  {agent.name}
-                                </span>
-                              </div>
-                              {getAgentStatusIcon(status)}
-                            </div>
-                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                              {latestMsg
-                                ? latestMsg.text.substring(0, 100) + "..."
-                                : "Processing..."}
-                            </p>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-                <div className="bg-slate-900 rounded-2xl p-4 shadow-lg border border-slate-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                      System Trace
-                    </span>
-                  </div>
-                  <div className="h-24 overflow-y-auto">
-                    <p className="text-xs font-mono text-slate-300 leading-relaxed break-words">
-                      {currentLog}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      LIVE
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {isWaitingUser && (
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md z-40 flex items-center justify-center p-4 md:p-8">
-                <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-8 flex flex-col max-h-[85vh]">
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-100">
-                      <AlertTriangle size={28} />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-extrabold tracking-tight text-slate-950">
-                        Moderator Interruption
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium">
-                        Clarification required to proceed
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bg-amber-50/80 border border-amber-100 rounded-2xl p-4 mb-5 overflow-y-auto max-h-40">
-                    <p className="text-base text-slate-800 font-semibold leading-relaxed whitespace-normal break-words">
-                      {modQuestion}
-                    </p>
-                  </div>
+                <p className="text-sm text-amber-900 mb-4">{moderatorQuestion}</p>
+                
+                <div className="relative">
                   <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        sendAnswer();
-                      }
-                    }}
-                    maxLength={MAX_CLARIFICATION_LENGTH}
-                    className="w-full p-4 border border-slate-200 rounded-xl mb-2 text-base font-medium outline-none focus:ring-2 focus:ring-[#4648d4] bg-slate-50 resize-none h-28"
-                    placeholder="Provide the missing parameter..."
+                    rows={3}
+                    className="w-full p-3 border border-amber-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+                    placeholder="Jawab pertanyaan moderator..."
+                    value={clarificationText}
+                    onChange={(e) => setClarificationText(e.target.value)}
+                    maxLength={500}
                   />
-                  {/* REAL-TIME CHARACTER COUNTER — KLARIFIKASI MODERATOR */}
-                  <div className="flex justify-end mb-4">
-                    <span className={`text-[11px] font-medium ${input.length >= MAX_CLARIFICATION_LENGTH ? "text-red-500" : "text-slate-400"}`}>
-                      {input.length}/{MAX_CLARIFICATION_LENGTH}
-                    </span>
-                  </div>
-                  <button
-                    onClick={sendAnswer}
-                    className="w-full bg-[#4648d4] text-white py-3.5 rounded-xl font-bold hover:bg-[#6063ee] transition-all shadow-md text-base active:scale-[0.98]"
-                  >
-                    Submit Response
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ==================== SIMULATION ==================== */}
-        {view === "simulation" && (
-          <SimulationView
-            simulationData={simulationData}
-            simulationResults={simulationResults}
-            onRunSimulation={handleRunSimulation}
-            onConfirmSimulation={handleConfirmSimulation}
-            onSkipSimulation={handleSkipSimulation}
-            onBackToDiscussion={() => setView("discussion")}
-            wsConnected={wsConnected}
-          />
-        )}
-
-        {/* ==================== SUMMARY ==================== */}
-        {view === "summary" && (
-          <div className="max-w-7xl mx-auto py-12 px-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8">
-              <div className="bg-white rounded-[24px] p-8 shadow-sm border border-[#e1e3e4]">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="w-6 h-6 text-[#4648d4]" />
-                    <h1 className="text-3xl font-bold text-slate-900">
-                      Final Resolution Blueprint
-                    </h1>
-                  </div>
-                  <button
-                    onClick={() => setView("simulation")}
-                    className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 shrink-0"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back to Simulation
-                  </button>
-                </div>
-                <div
-                  className="text-gray-700 leading-relaxed text-base whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{
-                    __html: formatBlueprint(result.content).replace(
-                      /\n/g,
-                      "<br/>",
-                    ),
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 flex flex-col gap-6">
-              {/* PDF DOWNLOAD CARD — TERIKAT 100% PADA files.pdf */}
-              <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
-                    <FileText size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">Analysis_Report.pdf</h3>
-                    <p className="text-xs text-gray-400">Ready to download</p>
+                  <div className="absolute bottom-2 right-2 text-[10px] text-slate-400 font-mono">
+                    {clarificationText.length}/500
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() =>
-                      setPdfPreviewUrl(
-                        `http://127.0.0.1:8000${result.files.pdf}`,
-                      )
-                    }
-                    disabled={!result.files.pdf}
-                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Eye size={14} /> Preview
-                  </button>
-                  <a
-                    href={`http://127.0.0.1:8000${result.files.pdf}`}
-                    download
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
-                  >
-                    <Download size={14} /> Download
-                  </a>
-                </div>
-              </div>
-
-              {/* PPTX DOWNLOAD CARD — TERIKAT 100% PADA files.ppt */}
-              <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <Layers size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">
-                      Executive_Slides.pptx
-                    </h3>
-                    <p className="text-xs text-gray-400">
-                      Multi-Slide Presentation Format
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      setCurrentSlideIndex(0);
-                      setIsPptPreviewOpen(true);
-                    }}
-                    disabled={!result.files.ppt}
-                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Eye size={14} /> Preview
-                  </button>
-                  <a
-                    href={`http://127.0.0.1:8000${result.files.ppt}`}
-                    download
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
-                  >
-                    <Download size={14} /> Download
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== PDF PREVIEW ==================== */}
-        {pdfPreviewUrl && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-6 backdrop-blur-sm">
-            <div className="bg-white w-full h-full max-w-4xl rounded-2xl flex flex-col overflow-hidden">
-              <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
-                <h3 className="font-bold text-sm">Live PDF Report Preview</h3>
+                
                 <button
-                  onClick={() => setPdfPreviewUrl(null)}
-                  className="text-xs font-bold hover:bg-gray-800 px-3 py-1 rounded-lg"
+                  onClick={handleSendClarification}
+                  disabled={!clarificationText.trim()}
+                  className="mt-2 w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white rounded-lg font-semibold text-xs transition-colors"
                 >
-                  Close (X)
+                  Kirim Jawaban
                 </button>
               </div>
-              <iframe
-                src={pdfPreviewUrl}
-                className="flex-1 w-full h-full bg-gray-100"
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel - Network Graph & Progress */}
+        <div className="flex-1 flex flex-col relative">
+          <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between z-10">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${getPhaseStyle(phase)}`}>
+              {getPhaseIcon(phase)}
+              Phase: {phase.charAt(0).toUpperCase() + phase.slice(1)}
+            </div>
+            <div className="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#4648d4] rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
               />
             </div>
+            <span className="text-xs font-bold text-slate-500">{progress}%</span>
           </div>
-        )}
 
-        {/* ==================== PPT PREVIEW ==================== */}
-        {isPptPreviewOpen && (
-          <div className="fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 backdrop-blur-md">
-            <div className="w-full max-w-4xl flex flex-col gap-4">
-              <div className="flex justify-between items-center text-white px-2">
-                <p className="text-sm font-semibold tracking-wider uppercase opacity-80 flex items-center gap-2">
-                  <Layers size={16} className="text-[#4648d4]" /> Executive
-                  Slide Presentasi (Local Preview)
-                </p>
-                <button
-                  onClick={() => setIsPptPreviewOpen(false)}
-                  className="bg-white/10 hover:bg-white/20 p-2 rounded-full"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="w-full aspect-[16/9] bg-white rounded-3xl shadow-2xl border border-gray-100 p-12 flex flex-col justify-between relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#4648d4] to-[#6063ee]" />
-                {pptSlides.length > 0 ? (
-                  <>
-                    <div>
-                      <span className="text-[10px] font-bold text-[#4648d4] uppercase tracking-widest bg-[#4648d4]/10 px-3 py-1 rounded-full">
-                        Slide {currentSlideIndex + 1} of {pptSlides.length}
-                      </span>
-                      <h2 className="text-3xl font-bold text-gray-900 mt-4 tracking-tight">
-                        {pptSlides[currentSlideIndex].title}
-                      </h2>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center my-6">
-                      <ul className="space-y-4">
-                        {pptSlides[currentSlideIndex].bullets.map(
-                          (bullet, bIdx) => (
-                            <li
-                              key={bIdx}
-                              className="text-lg text-gray-700 flex items-start gap-3 leading-relaxed"
-                            >
-                              <span className="w-2 h-2 rounded-full bg-[#4648d4] mt-3 shrink-0" />
-                              <span>{bullet}</span>
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
-                    <div className="flex justify-between items-center border-t border-gray-100 pt-4 text-xs text-gray-400 font-medium">
-                      <span>Argunex Intelligence Engine</span>
-                      <span>Confidential Strategy Blueprint</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center text-gray-400 font-medium text-sm">
-                    Memuat struktur halaman presentasi...
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-between items-center px-4">
-                <button
-                  disabled={currentSlideIndex === 0}
-                  onClick={() =>
-                    setCurrentSlideIndex((p) => Math.max(0, p - 1))
-                  }
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white rounded-xl text-sm font-bold text-gray-700 shadow-md hover:bg-gray-50 disabled:opacity-40 transition-all"
-                >
-                  <ChevronLeft size={16} /> Previous
-                </button>
-                <span className="text-sm text-white/80 font-semibold tracking-wider">
-                  Slide {currentSlideIndex + 1} / {pptSlides.length}
-                </span>
-                <button
-                  disabled={currentSlideIndex === pptSlides.length - 1}
-                  onClick={() =>
-                    setCurrentSlideIndex((p) =>
-                      Math.min(pptSlides.length - 1, p + 1),
-                    )
-                  }
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#4648d4] text-white rounded-xl text-sm font-bold shadow-md hover:bg-[#6063ee] disabled:opacity-40 transition-all"
-                >
-                  Next <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
+          <div className="flex-1 relative">
+            <NetworkGraph
+              zoomLevel={zoomLevel}
+              activeAgent={activeAgent}
+              hoveredNode={hoveredNode}
+              setHoveredNode={setHoveredNode}
+              problemText={problemText}
+              agents={agents}
+            />
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
