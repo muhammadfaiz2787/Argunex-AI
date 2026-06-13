@@ -2300,21 +2300,16 @@ export default function App() {
                         const status =
                           activeAgent === agent.name ? "active" : "completed";
 
-                        // FIX: Generate descriptive placeholder text
-                        const getAgentDesc = () => {
-                          if (!latestMsg || !latestMsg.text || latestMsg.text.trim().length < 3) {
-                            if (status === "active") {
-                              const taskMap = {
-                                "Domain Analyst": "Extracting domain variables and entity mappings...",
-                                "Financial Analyst": "Running financial projections and cost modeling...",
-                                "Risk Analyst": "Assessing operational risk and mitigation factors...",
-                                "Strategy Analyst": "Formulating strategic recommendations...",
-                              };
-                              return taskMap[agent.name] || `Running ${agent.name.toLowerCase()} analysis...`;
-                            }
-                            return `${agent.name} analysis completed.`;
+                        // Show REAL discussion text from the agent's reply
+                        const displayText = () => {
+                          if (latestMsg && latestMsg.text && latestMsg.text.trim().length > 3) {
+                            return latestMsg.text.substring(0, 100) + (latestMsg.text.length > 100 ? "..." : "");
                           }
-                          return latestMsg.text.substring(0, 100) + (latestMsg.text.length > 100 ? "..." : "");
+                          // Only show fallback if no text available yet
+                          if (status === "active") {
+                            return `Processing ${agent.name.toLowerCase()} analysis...`;
+                          }
+                          return "Analysis completed.";
                         };
 
                         return (
@@ -2334,7 +2329,7 @@ export default function App() {
                               {getAgentStatusIcon(status)}
                             </div>
                             <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                              {getAgentDesc()}
+                              {displayText()}
                             </p>
                           </div>
                         );
