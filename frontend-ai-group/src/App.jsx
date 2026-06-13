@@ -1434,6 +1434,7 @@ export default function App() {
   const [apiError, setApiError] = useState(null);
 
   const ws = useRef(null);
+  const reconnectTimer = useRef(null);
 
   const uniqueAgentNames = Array.from(
     new Set(messages.map((m) => m.agent).filter(Boolean)),
@@ -1443,59 +1444,103 @@ export default function App() {
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
+  // CRITICAL FIX: Wrap handleWsMessage with try-catch to prevent React crash on bad JSON
   const handleWsMessage = useCallback((event) => {
-    const data = JSON.parse(event.data);
-    if (data.progress) setProgress(data.progress);
+    try {
+      const data = JSON.parse(event.data);
+      if (data.progress) setProgress(data.progress);
 
-    if (data.step === "error") {
-      const errCode = data.error_code || "ERROR_503_OVERLOAD";
-      setApiError(errCode);
-      setCurrentLog(`System Error: ${errCode}`);
-      if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
-        setDiscussionPhase("idle");
-        setProgress(0);
-        setView("workspace");
+      if (data.step === "error") {
+        const errCode = data.error_code || "ERROR_503_OVERLOAD";
+        // Only show modal for fatal auth/balance errors. For transient errors, log only.
+        if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
+          setApiError(errCode);
+          setDiscussionPhase("idle");
+          setProgress(0);
+          setView("workspace");
+        } else {
+          // Log transient error but DO NOT stop the flow
+          setCurrentLog(`Transient error: ${errCode}. Retrying...`);
+        }
+        return;
       }
+
+      if (data.step === "roles") {
+        setCurrentLog("System assigning optimized multi-agent roles...");
+        setDiscussionPhase("roles");
+      } else if (data.step === "discussing") {
+        setMessages((prev) => [...prev, { agent: data.agent, text: data.text }]);
+        setActiveAgent(data.agent);
+        setCurrentLog(`${data.agent}: ${data.text.substring(0, 80)}...`);
+        setDiscussionPhase("discussing");
+      } else if (data.step === "ask_user") {
+        setIsWaitingUser(true);
+        setModQuestion(data.text);
+        setCurrentLog("Moderator interaction requested. Discussion paused.");
+        setDiscussionPhase("moderating");
+        setActiveAgent("user");
+      } else if (data.step === "simulation_ready") {
+        setSimulationData(data.simulation_data);
+        setSimulationResults(null);
+        setView("simulation");
+        setCurrentLog(
+          "Simulation engine initialized. Ready for scenario modeling.",
+        );
+        setDiscussionPhase("simulation");
+        setActiveAgent(null);
+      } else if (data.step === "simulation_result") {
+        setSimulationResults(data.scenario_results);
+        setCurrentLog("Simulation completed. Scenario analysis ready.");
+      } else if (data.step === "final") {
+        setResult({ content: data.content, files: data.files });
+        if (data.slides_preview) setPptSlides(data.slides_preview);
+        setView("summary");
+        setCurrentLog(
+          "Analysis completed. Final quantitative reports generated.",
+        );
+        setDiscussionPhase("final");
+        setActiveAgent(null);
+      }
+    } catch (parseErr) {
+      console.error("[WS PARSE ERROR]", parseErr);
+      setCurrentLog("Received malformed message from server. Ignoring...");
+    }
+  }, []);
+
+  // CRITICAL FIX: WebSocket with auto-reconnect
+  const connectWebSocket = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
-    if (data.step === "roles") {
-      setCurrentLog("System assigning optimized multi-agent roles...");
-      setDiscussionPhase("roles");
-    } else if (data.step === "discussing") {
-      setMessages((prev) => [...prev, { agent: data.agent, text: data.text }]);
-      setActiveAgent(data.agent);
-      setCurrentLog(`${data.agent}: ${data.text.substring(0, 80)}...`);
-      setDiscussionPhase("discussing");
-    } else if (data.step === "ask_user") {
-      setIsWaitingUser(true);
-      setModQuestion(data.text);
-      setCurrentLog("Moderator interaction requested. Discussion paused.");
-      setDiscussionPhase("moderating");
-      setActiveAgent("user");
-    } else if (data.step === "simulation_ready") {
-      setSimulationData(data.simulation_data);
-      setSimulationResults(null);
-      setView("simulation");
-      setCurrentLog(
-        "Simulation engine initialized. Ready for scenario modeling.",
-      );
-      setDiscussionPhase("simulation");
-      setActiveAgent(null);
-    } else if (data.step === "simulation_result") {
-      setSimulationResults(data.scenario_results);
-      setCurrentLog("Simulation completed. Scenario analysis ready.");
-    } else if (data.step === "final") {
-      setResult({ content: data.content, files: data.files });
-      if (data.slides_preview) setPptSlides(data.slides_preview);
-      setView("summary");
-      setCurrentLog(
-        "Analysis completed. Final quantitative reports generated.",
-      );
-      setDiscussionPhase("final");
-      setActiveAgent(null);
+    try {
+      const wsInstance = new WebSocket(WS_URL);
+      wsInstance.onmessage = handleWsMessage;
+      wsInstance.onopen = () => {
+        setWsConnected(true);
+        setCurrentLog("WebSocket connected. Engine ready.");
+        // Clear any pending reconnect timer
+        if (reconnectTimer.current) {
+          clearTimeout(reconnectTimer.current);
+          reconnectTimer.current = null;
+        }
+      };
+      wsInstance.onclose = () => {
+        setWsConnected(false);
+        setCurrentLog("WebSocket disconnected. Reconnecting in 3s...");
+        // Auto-reconnect after 3 seconds
+        reconnectTimer.current = setTimeout(connectWebSocket, 3000);
+      };
+      wsInstance.onerror = (err) => {
+        console.error("WebSocket error:", err);
+        setCurrentLog("WebSocket connection error.");
+      };
+      ws.current = wsInstance;
+    } catch (err) {
+      console.error("Failed to create WebSocket:", err);
+      reconnectTimer.current = setTimeout(connectWebSocket, 3000);
     }
-  }, []);
+  }, [handleWsMessage]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -1514,23 +1559,15 @@ export default function App() {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    // FIX: WebSocket menggunakan URL Hugging Face Space production
-    ws.current = new WebSocket(WS_URL);
-    ws.current.onmessage = handleWsMessage;
-    ws.current.onopen = () => {
-      setWsConnected(true);
-      setCurrentLog("WebSocket connected. Engine ready.");
-    };
-    ws.current.onclose = () => {
-      setWsConnected(false);
-      setCurrentLog("WebSocket disconnected.");
-    };
+    // Initialize WebSocket connection
+    connectWebSocket();
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (ws.current) ws.current.close();
     };
-  }, [handleWsMessage]);
+  }, [connectWebSocket]);
 
   // ==========================================
   // FILE UPLOAD, PASTE, & DRAG-DROP PROCESSOR
@@ -1554,7 +1591,6 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // FIX: Upload ke Hugging Face Space
       const response = await fetch(`${API_BASE}/upload`, {
         method: "POST",
         body: formData,
