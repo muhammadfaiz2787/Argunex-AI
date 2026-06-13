@@ -46,7 +46,7 @@ import {
   ImageIcon,
   FileIcon,
   UploadCloud,
-  Bot // Icon baru untuk modal
+  Bot
 } from "lucide-react";
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
@@ -334,7 +334,7 @@ function getFileTypeInfo(filename) {
 }
 
 // ==========================================
-// POOL CONFIGURASI AGENT
+// POOL KONFIGURASI AGENT (visual)
 // ==========================================
 const AGENT_STYLE_POOL = [
   {
@@ -1455,10 +1455,16 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [apiError, setApiError] = useState(null);
-  const [selectedAgentText, setSelectedAgentText] = useState(null); // State untuk modal discussion
+  const [selectedAgentText, setSelectedAgentText] = useState(null);
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
+  const messagesRef = useRef(messages); // Untuk akses terbaru di handleWsMessage
+
+  // Update ref setiap kali messages berubah
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const forceDownload = async (url, filename) => {
     try {
@@ -1482,6 +1488,7 @@ export default function App() {
     }
   };
 
+  // Helper untuk mendapatkan daftar agent unik dari messages
   const uniqueAgentNames = Array.from(
     new Set(messages.map((m) => m.agent).filter(Boolean)),
   );
@@ -1489,6 +1496,21 @@ export default function App() {
     const styleObj = AGENT_STYLE_POOL[idx % AGENT_STYLE_POOL.length];
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
+
+  // Handler klik agent untuk menampilkan full text
+  const handleAgentClick = useCallback((agentName) => {
+    // Ambil messages terbaru dari ref
+    const currentMessages = messagesRef.current;
+    const agentMessages = currentMessages.filter((m) => m.agent === agentName);
+    if (agentMessages.length === 0) return;
+    
+    const fullText = agentMessages.map((m) => m.text).join('\n\n');
+    if (fullText.trim()) {
+      setSelectedAgentText({ name: agentName, text: fullText });
+    } else {
+      setSelectedAgentText({ name: agentName, text: "Tidak ada teks diskusi untuk agen ini." });
+    }
+  }, []);
 
   const handleWsMessage = useCallback((event) => {
     try {
@@ -1812,17 +1834,6 @@ export default function App() {
         /(\d+\s*[+\-×÷/]\s*\d+\s*=\s*[\d.,]+)/g,
         '<span class="formula-highlight">$1</span>',
       );
-  };
-
-  // ==========================================
-  // HANDLER KLIK AGENT UNTUK FULL TEXT
-  // ==========================================
-  const handleAgentClick = (agentName) => {
-    const agentMessages = messages.filter((m) => m.agent === agentName);
-    const fullText = agentMessages.map(m => m.text).join('\n\n');
-    if (fullText) {
-      setSelectedAgentText({ name: agentName, text: fullText });
-    }
   };
 
   // ==========================================
