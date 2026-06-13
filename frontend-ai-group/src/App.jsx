@@ -46,6 +46,7 @@ import {
   ImageIcon,
   FileIcon,
   UploadCloud,
+  Bot // Icon baru untuk modal
 } from "lucide-react";
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
@@ -91,7 +92,7 @@ function MicrosoftLoginButton({ size = "small" }) {
     return (
       <button
         onClick={handleLogin}
-        className="flex items-center gap-3 px-8 py-4 bg-[#0078d4] hover:bg-[#005a9e] text-white rounded-2xl text-lg font-bold transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]"
+        className="flex items-center justify-center w-fit mx-auto gap-3 px-8 py-4 bg-[#0078d4] hover:bg-[#005a9e] text-white rounded-2xl text-lg font-bold transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -399,6 +400,7 @@ function NetworkGraph({
   setHoveredNode,
   problemText,
   agents,
+  onNodeClick,
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -580,6 +582,7 @@ function NetworkGraph({
               }}
               onMouseEnter={() => setHoveredNode(agent.id)}
               onMouseLeave={() => setHoveredNode(null)}
+              onClick={() => onNodeClick && onNodeClick(agent.name)}
             >
               <rect
                 x={-nodeWidth / 2}
@@ -669,6 +672,7 @@ function SimulationView({
   );
   const [isRunning, setIsRunning] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
   useEffect(() => {
     if (!simulationData?.variables) return;
@@ -848,9 +852,21 @@ function SimulationView({
             <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2">
               {simulationData?.domain || "Simulation"}
             </h3>
-            <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
-              {simulationData?.original_problem || "No problem description"}
-            </p>
+            
+            <div className="relative">
+              <p className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? 'line-clamp-3' : ''}`}>
+                {simulationData?.original_problem || "No problem description"}
+              </p>
+              {(simulationData?.original_problem?.length > 150) && (
+                <button
+                  onClick={() => setIsProblemExpanded(!isProblemExpanded)}
+                  className="text-[#4648d4] text-[10px] font-bold mt-1 hover:underline focus:outline-none"
+                >
+                  {isProblemExpanded ? "See Less" : "See More"}
+                </button>
+              )}
+            </div>
+            
             <div className="flex gap-3 mt-4">
               <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
@@ -983,7 +999,6 @@ function SimulationView({
                   .split("\n")
                   .filter((l) => l.trim().length > 0)
                   .map((line, i) => {
-                    // FIX: Use regex to properly extract role name and content
                     const roleMatch = line.match(/^\[(.*?)\]:\s*(.*)$/);
                     if (roleMatch) {
                       const roleName = roleMatch[1];
@@ -1440,11 +1455,11 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [apiError, setApiError] = useState(null);
+  const [selectedAgentText, setSelectedAgentText] = useState(null); // State untuk modal discussion
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
 
-  // FIX: Force file download via blob (prevents opening in new tab)
   const forceDownload = async (url, filename) => {
     try {
       setCurrentLog(`⬇️ Downloading ${filename}...`);
@@ -1475,7 +1490,6 @@ export default function App() {
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
-  // CRITICAL FIX: Wrap handleWsMessage with try-catch to prevent React crash on bad JSON
   const handleWsMessage = useCallback((event) => {
     try {
       const data = JSON.parse(event.data);
@@ -1483,14 +1497,12 @@ export default function App() {
 
       if (data.step === "error") {
         const errCode = data.error_code || "ERROR_503_OVERLOAD";
-        // Only show modal for fatal auth/balance errors. For transient errors, log only.
         if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
           setApiError(errCode);
           setDiscussionPhase("idle");
           setProgress(0);
           setView("workspace");
         } else {
-          // Log transient error but DO NOT stop the flow
           setCurrentLog(`Transient error: ${errCode}. Retrying...`);
         }
         return;
@@ -1538,7 +1550,6 @@ export default function App() {
     }
   }, []);
 
-  // CRITICAL FIX: WebSocket with auto-reconnect
   const connectWebSocket = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
       return;
@@ -1550,7 +1561,6 @@ export default function App() {
       wsInstance.onopen = () => {
         setWsConnected(true);
         setCurrentLog("WebSocket connected. Engine ready.");
-        // Clear any pending reconnect timer
         if (reconnectTimer.current) {
           clearTimeout(reconnectTimer.current);
           reconnectTimer.current = null;
@@ -1559,7 +1569,6 @@ export default function App() {
       wsInstance.onclose = () => {
         setWsConnected(false);
         setCurrentLog("WebSocket disconnected. Reconnecting in 3s...");
-        // Auto-reconnect after 3 seconds
         reconnectTimer.current = setTimeout(connectWebSocket, 3000);
       };
       wsInstance.onerror = (err) => {
@@ -1590,7 +1599,6 @@ export default function App() {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    // Initialize WebSocket connection
     connectWebSocket();
 
     return () => {
@@ -1600,9 +1608,6 @@ export default function App() {
     };
   }, [connectWebSocket]);
 
-  // ==========================================
-  // FILE UPLOAD, PASTE, & DRAG-DROP PROCESSOR
-  // ==========================================
   const processFile = async (file) => {
     if (!file) return;
 
@@ -1714,9 +1719,6 @@ export default function App() {
     }
   };
 
-  // ==========================================
-  // START PROCESS
-  // ==========================================
   const startProcess = () => {
     if (!input.trim() && !extractedDocText) return;
     setView("discussion");
@@ -1813,10 +1815,20 @@ export default function App() {
   };
 
   // ==========================================
+  // HANDLER KLIK AGENT UNTUK FULL TEXT
+  // ==========================================
+  const handleAgentClick = (agentName) => {
+    const agentMessages = messages.filter((m) => m.agent === agentName);
+    const fullText = agentMessages.map(m => m.text).join('\n\n');
+    if (fullText) {
+      setSelectedAgentText({ name: agentName, text: fullText });
+    }
+  };
+
+  // ==========================================
   // RENDER
   // ==========================================
 
-  // AUTH GUARD: Jika belum login, tampilkan halaman login penuh
   if (accounts.length === 0) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
@@ -1832,7 +1844,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c]">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#191c1d] font-sans antialiased selection:bg-[#e1e0ff] selection:text-[#07006c] relative">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         .hero-pattern { background-image: radial-gradient(circle at 2px 2px, #e1e3e4 1px, transparent 0); background-size: 40px 40px; }
@@ -1857,7 +1869,31 @@ export default function App() {
         .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
       `}</style>
 
-      {/* ADVANCED API ERROR HANDLING — VISUAL ALERT MODAL */}
+      {/* ==================== AGENT DISCUSSION MODAL ==================== */}
+      {selectedAgentText && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[80vh] animate-fadeIn">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Bot className="w-6 h-6 text-[#4648d4]" />
+                Full Discussion: {selectedAgentText.name}
+              </h3>
+              <button
+                onClick={() => setSelectedAgentText(null)}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                {selectedAgentText.text}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {apiError && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-100 animate-fadeIn">
@@ -1908,7 +1944,6 @@ export default function App() {
               </div>
             )}
 
-            {/* USER PROFILE DROPDOWN: Avatar + Logout + Ganti Akun */}
             <UserProfileDropdown />
           </div>
         </div>
@@ -2096,7 +2131,6 @@ export default function App() {
                   placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)"
                 />
 
-                {/* REAL-TIME CHARACTER COUNTER */}
                 <div className="flex justify-end px-2">
                   <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                     {input.length}/{MAX_INPUT_LENGTH}
@@ -2255,6 +2289,7 @@ export default function App() {
                   setHoveredNode={setHoveredNode}
                   problemText={problemText}
                   agents={visibleAgents}
+                  onNodeClick={handleAgentClick}
                 />
                 <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1">
                   <button
@@ -2300,12 +2335,10 @@ export default function App() {
                         const status =
                           activeAgent === agent.name ? "active" : "completed";
 
-                        // Show REAL discussion text from the agent's reply
                         const displayText = () => {
                           if (latestMsg && latestMsg.text && latestMsg.text.trim().length > 3) {
                             return latestMsg.text.substring(0, 100) + (latestMsg.text.length > 100 ? "..." : "");
                           }
-                          // Only show fallback if no text available yet
                           if (status === "active") {
                             return `Processing ${agent.name.toLowerCase()} analysis...`;
                           }
@@ -2315,7 +2348,8 @@ export default function App() {
                         return (
                           <div
                             key={agent.id}
-                            className={`agent-card p-3 rounded-xl border ${getAgentCardStyle(status)}`}
+                            onClick={() => handleAgentClick(agent.name)}
+                            className={`agent-card p-3 rounded-xl border cursor-pointer ${getAgentCardStyle(status)}`}
                           >
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-2">
@@ -2395,7 +2429,6 @@ export default function App() {
                     className="w-full p-4 border border-slate-200 rounded-xl mb-2 text-base font-medium outline-none focus:ring-2 focus:ring-[#4648d4] bg-slate-50 resize-none h-28"
                     placeholder="Provide the missing parameter..."
                   />
-                  {/* REAL-TIME CHARACTER COUNTER — KLARIFIKASI MODERATOR */}
                   <div className="flex justify-end mb-4">
                     <span className={`text-[11px] font-medium ${input.length >= MAX_CLARIFICATION_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                       {input.length}/{MAX_CLARIFICATION_LENGTH}
