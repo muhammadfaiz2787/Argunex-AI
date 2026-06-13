@@ -981,20 +981,28 @@ function SimulationView({
               {simulationData?.expert_analysis ? (
                 simulationData.expert_analysis
                   .split("\n")
-                  .filter(Boolean)
+                  .filter((l) => l.trim().length > 0)
                   .map((line, i) => {
-                    const isRole = line.match(/^\[.*?\]:/);
-                    if (isRole)
+                    // FIX: Use regex to properly extract role name and content
+                    const roleMatch = line.match(/^\[(.*?)\]:\s*(.*)$/);
+                    if (roleMatch) {
+                      const roleName = roleMatch[1];
+                      const roleContent = roleMatch[2].trim();
                       return (
-                        <div
-                          key={i}
-                          className="font-semibold text-[#4648d4] mt-2"
-                        >
-                          {line.split(":")[0]}:
+                        <div key={i} className="mb-2">
+                          <div className="font-semibold text-[#4648d4] mt-2">
+                            [{roleName}]:
+                          </div>
+                          {roleContent.length > 0 && (
+                            <div className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed">
+                              {roleContent}
+                            </div>
+                          )}
                         </div>
                       );
+                    }
                     return (
-                      <div key={i} className="pl-2 border-l-2 border-slate-200">
+                      <div key={i} className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed">
                         {line}
                       </div>
                     );
@@ -1435,6 +1443,29 @@ export default function App() {
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
+
+  // FIX: Force file download via blob (prevents opening in new tab)
+  const forceDownload = async (url, filename) => {
+    try {
+      setCurrentLog(`⬇️ Downloading ${filename}...`);
+      const response = await fetch(url, { method: "GET" });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      setCurrentLog(`✅ ${filename} downloaded successfully.`);
+    } catch (err) {
+      console.error("Download failed:", err);
+      setCurrentLog(`❌ Download failed: ${err.message}. Try using the Preview button.`);
+    }
+  };
 
   const uniqueAgentNames = Array.from(
     new Set(messages.map((m) => m.agent).filter(Boolean)),
@@ -2268,6 +2299,24 @@ export default function App() {
                           agentMessages[agentMessages.length - 1];
                         const status =
                           activeAgent === agent.name ? "active" : "completed";
+
+                        // FIX: Generate descriptive placeholder text
+                        const getAgentDesc = () => {
+                          if (!latestMsg || !latestMsg.text || latestMsg.text.trim().length < 3) {
+                            if (status === "active") {
+                              const taskMap = {
+                                "Domain Analyst": "Extracting domain variables and entity mappings...",
+                                "Financial Analyst": "Running financial projections and cost modeling...",
+                                "Risk Analyst": "Assessing operational risk and mitigation factors...",
+                                "Strategy Analyst": "Formulating strategic recommendations...",
+                              };
+                              return taskMap[agent.name] || `Running ${agent.name.toLowerCase()} analysis...`;
+                            }
+                            return `${agent.name} analysis completed.`;
+                          }
+                          return latestMsg.text.substring(0, 100) + (latestMsg.text.length > 100 ? "..." : "");
+                        };
+
                         return (
                           <div
                             key={agent.id}
@@ -2285,9 +2334,7 @@ export default function App() {
                               {getAgentStatusIcon(status)}
                             </div>
                             <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                              {latestMsg
-                                ? latestMsg.text.substring(0, 100) + "..."
-                                : "Processing..."}
+                              {getAgentDesc()}
                             </p>
                           </div>
                         );
@@ -2335,7 +2382,9 @@ export default function App() {
                   </div>
                   <div className="bg-amber-50/80 border border-amber-100 rounded-2xl p-4 mb-5 overflow-y-auto max-h-40">
                     <p className="text-base text-slate-800 font-semibold leading-relaxed whitespace-normal break-words">
-                      {modQuestion}
+                      {modQuestion && modQuestion.trim().length > 0
+                        ? modQuestion
+                        : "Moderator memerlukan data kuantitatif tambahan untuk melanjutkan analisis. Mohon berikan parameter yang mungkin belum disebutkan sebelumnya."}
                     </p>
                   </div>
                   <textarea
@@ -2435,13 +2484,13 @@ export default function App() {
                   >
                     <Eye size={14} /> Preview
                   </button>
-                  <a
-                    href={`${API_BASE}${result.files.pdf}`}
-                    download
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
+                  <button
+                    onClick={() => forceDownload(`${API_BASE}${result.files.pdf}`, "Analysis_Report.pdf")}
+                    disabled={!result.files.pdf}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
                   >
                     <Download size={14} /> Download
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -2471,13 +2520,13 @@ export default function App() {
                   >
                     <Eye size={14} /> Preview
                   </button>
-                  <a
-                    href={`${API_BASE}${result.files.ppt}`}
-                    download
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
+                  <button
+                    onClick={() => forceDownload(`${API_BASE}${result.files.ppt}`, "Executive_Slides.pptx")}
+                    disabled={!result.files.ppt}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
                   >
                     <Download size={14} /> Download
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
