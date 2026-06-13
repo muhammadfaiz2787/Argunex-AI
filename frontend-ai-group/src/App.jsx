@@ -852,7 +852,7 @@ function SimulationView({
             <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2">
               {simulationData?.domain || "Simulation"}
             </h3>
-            
+
             <div className="relative">
               <p className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? 'line-clamp-3' : ''}`}>
                 {simulationData?.original_problem || "No problem description"}
@@ -866,7 +866,7 @@ function SimulationView({
                 </button>
               )}
             </div>
-            
+
             <div className="flex gap-3 mt-4">
               <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
@@ -1456,16 +1456,10 @@ export default function App() {
   const [hoveredNode, setHoveredNode] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [selectedAgentText, setSelectedAgentText] = useState(null);
-  const [analysisMetrics, setAnalysisMetrics] = useState(null); // State untuk metrics
+  const [analysisMetrics, setAnalysisMetrics] = useState(null);
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
-  const messagesRef = useRef(messages);
-
-  // Update ref setiap kali messages berubah
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
 
   const forceDownload = async (url, filename) => {
     try {
@@ -1497,21 +1491,27 @@ export default function App() {
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
+  // FIXED: handleAgentClick langsung menggunakan messages state (real-time)
+  // dengan dependency [messages] agar selalu terupdate
   const handleAgentClick = useCallback((agentName) => {
-    const currentMessages = messagesRef.current;
-    const agentMessages = currentMessages.filter((m) => m.agent === agentName);
+    const agentMessages = messages.filter((m) => m.agent === agentName);
+
     if (agentMessages.length === 0) {
-      setSelectedAgentText({ name: agentName, text: "Tidak ada teks diskusi untuk agen ini." });
+      setSelectedAgentText({
+        name: agentName,
+        text: `[${agentName}]\n\nAgen ini telah ditugaskan untuk analisis, namun belum memberikan respons diskusi yang terekam dalam sesi ini. Agen mungkin sedang dalam proses verifikasi data atau menunggu giliran dalam alur deliberasi multi-agent.`,
+      });
       return;
     }
-    const fullText = agentMessages.map((m) => m.text).join('\n\n');
-    if (fullText.trim()) {
-      setSelectedAgentText({ name: agentName, text: fullText });
-    } else {
-      setSelectedAgentText({ name: agentName, text: "Tidak ada teks diskusi untuk agen ini." });
-    }
-  }, []);
 
+    const fullText = agentMessages
+      .map((m, idx) => `[Pernyataan ${idx + 1}]\n${m.text}`)
+      .join("\n\n");
+
+    setSelectedAgentText({ name: agentName, text: fullText });
+  }, [messages]);
+
+  // FIXED: handleWsMessage memastikan data.agent dan data.text selalu valid string
   const handleWsMessage = useCallback((event) => {
     try {
       const data = JSON.parse(event.data);
@@ -1534,9 +1534,11 @@ export default function App() {
         setCurrentLog("System assigning optimized multi-agent roles...");
         setDiscussionPhase("roles");
       } else if (data.step === "discussing") {
-        setMessages((prev) => [...prev, { agent: data.agent, text: data.text }]);
-        setActiveAgent(data.agent);
-        setCurrentLog(`${data.agent}: ${data.text.substring(0, 80)}...`);
+        const agentName = typeof data.agent === "string" ? data.agent : "System Agent";
+        const agentText = typeof data.text === "string" ? data.text : "";
+        setMessages((prev) => [...prev, { agent: agentName, text: agentText }]);
+        setActiveAgent(agentName);
+        setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
         setDiscussionPhase("discussing");
       } else if (data.step === "ask_user") {
         setIsWaitingUser(true);
@@ -1744,11 +1746,13 @@ export default function App() {
     }
   };
 
+  // FIXED: startProcess mereset messages, analysisMetrics, dan selectedAgentText dengan bersih
   const startProcess = () => {
     if (!input.trim() && !extractedDocText) return;
     setView("discussion");
     setMessages([]);
-    setAnalysisMetrics(null); // Reset metrics saat mulai baru
+    setAnalysisMetrics(null);
+    setSelectedAgentText(null);
     setProgress(10);
     setCurrentLog("Initiating quantitative orchestration engine...");
     setDiscussionPhase("roles");
