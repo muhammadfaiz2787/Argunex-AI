@@ -50,6 +50,12 @@ import {
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
 // ==========================================
+// KONFIGURASI BACKEND URL (HUGGING FACE SPACE)
+// ==========================================
+const API_BASE = "https://muhammadfaiz2787-argunex-ai-backend.hf.space";
+const WS_URL = "wss://muhammadfaiz2787-argunex-ai-backend.hf.space/ws";
+
+// ==========================================
 // KONSTANTA & UTILITAS
 // ==========================================
 const MAX_FILE_SIZE_FRONTEND = 2 * 1024 * 1024; // 2 MB
@@ -1508,9 +1514,8 @@ export default function App() {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    ws.current = new WebSocket(
-      "ws://127.0.0.1:8000/ws",
-    );
+    // FIX: WebSocket menggunakan URL Hugging Face Space production
+    ws.current = new WebSocket(WS_URL);
     ws.current.onmessage = handleWsMessage;
     ws.current.onopen = () => {
       setWsConnected(true);
@@ -1549,13 +1554,11 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/upload",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+      // FIX: Upload ke Hugging Face Space
+      const response = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         const errData = await response
@@ -2026,7 +2029,7 @@ export default function App() {
                   placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)"
                 />
 
-                {/* REAL-TIME CHARACTER COUNTER — MASALAH UTAMA */}
+                {/* REAL-TIME CHARACTER COUNTER */}
                 <div className="flex justify-end px-2">
                   <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                     {input.length}/{MAX_INPUT_LENGTH}
@@ -2375,7 +2378,7 @@ export default function App() {
             </div>
 
             <div className="lg:col-span-4 flex flex-col gap-6">
-              {/* PDF DOWNLOAD CARD — TERIKAT 100% PADA files.pdf */}
+              {/* PDF DOWNLOAD CARD */}
               <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
@@ -2389,9 +2392,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() =>
-                      setPdfPreviewUrl(
-                        `http://127.0.0.1:8000${result.files.pdf}`,
-                      )
+                      setPdfPreviewUrl(`${API_BASE}${result.files.pdf}`)
                     }
                     disabled={!result.files.pdf}
                     className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2399,7 +2400,7 @@ export default function App() {
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`http://127.0.0.1:8000${result.files.pdf}`}
+                    href={`${API_BASE}${result.files.pdf}`}
                     download
                     className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
                   >
@@ -2408,7 +2409,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* PPTX DOWNLOAD CARD — TERIKAT 100% PADA files.ppt */}
+              {/* PPTX DOWNLOAD CARD */}
               <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -2435,7 +2436,7 @@ export default function App() {
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`http://127.0.0.1:8000${result.files.ppt}`}
+                    href={`${API_BASE}${result.files.ppt}`}
                     download
                     className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
                   >
