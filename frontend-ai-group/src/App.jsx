@@ -1456,11 +1456,11 @@ export default function App() {
   const [hoveredNode, setHoveredNode] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [selectedAgentText, setSelectedAgentText] = useState(null);
-  const [analysisMetrics, setAnalysisMetrics] = useState(null); // <-- state untuk metrics
+  const [analysisMetrics, setAnalysisMetrics] = useState(null); // State untuk metrics
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
-  const messagesRef = useRef(messages); // Untuk akses terbaru di handleWsMessage
+  const messagesRef = useRef(messages);
 
   // Update ref setiap kali messages berubah
   useEffect(() => {
@@ -1489,7 +1489,6 @@ export default function App() {
     }
   };
 
-  // Helper untuk mendapatkan daftar agent unik dari messages
   const uniqueAgentNames = Array.from(
     new Set(messages.map((m) => m.agent).filter(Boolean)),
   );
@@ -1498,9 +1497,7 @@ export default function App() {
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
-  // Handler klik agent untuk menampilkan full text
   const handleAgentClick = useCallback((agentName) => {
-    // Ambil messages terbaru dari ref
     const currentMessages = messagesRef.current;
     const agentMessages = currentMessages.filter((m) => m.agent === agentName);
     if (agentMessages.length === 0) {
@@ -1751,13 +1748,13 @@ export default function App() {
     if (!input.trim() && !extractedDocText) return;
     setView("discussion");
     setMessages([]);
+    setAnalysisMetrics(null); // Reset metrics saat mulai baru
     setProgress(10);
     setCurrentLog("Initiating quantitative orchestration engine...");
     setDiscussionPhase("roles");
     setActiveAgent(null);
     setSimulationData(null);
     setSimulationResults(null);
-    setAnalysisMetrics(null); // reset metrics saat start baru
 
     let pText = "";
 
@@ -1887,7 +1884,7 @@ export default function App() {
         .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
       `}</style>
 
-      {/* ==================== AGENT DISCUSSION MODAL ==================== */}
+      {/* AGENT DISCUSSION MODAL */}
       {selectedAgentText && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[80vh] animate-fadeIn">
@@ -1961,14 +1958,13 @@ export default function App() {
                 {getPhaseIcon(discussionPhase)} {discussionPhase.toUpperCase()}
               </div>
             )}
-
             <UserProfileDropdown />
           </div>
         </div>
       </nav>
 
       <main className="relative">
-        {/* ==================== HOME ==================== */}
+        {/* HOME */}
         {view === "home" && (
           <div className="relative min-h-[calc(100vh-72px)] flex flex-col items-center px-6 py-20 md:py-28 hero-pattern">
             <div className="max-w-5xl mx-auto z-10 text-center mb-24">
@@ -2103,7 +2099,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== WORKSPACE ==================== */}
+        {/* WORKSPACE */}
         {view === "workspace" && (
           <div className="flex-grow flex flex-col items-center justify-center px-6 py-16 relative">
             <div className="w-full max-w-3xl flex flex-col items-center text-center gap-4 mb-12">
@@ -2262,7 +2258,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== DISCUSSION ==================== */}
+        {/* DISCUSSION */}
         {view === "discussion" && (
           <div className="h-[calc(100vh-72px)] flex flex-col p-4 md:p-6 relative bg-slate-50">
             <div className="w-full bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-200">
@@ -2464,7 +2460,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== SIMULATION ==================== */}
+        {/* SIMULATION */}
         {view === "simulation" && (
           <SimulationView
             simulationData={simulationData}
@@ -2477,7 +2473,7 @@ export default function App() {
           />
         )}
 
-        {/* ==================== SUMMARY ==================== */}
+        {/* SUMMARY + METRICS */}
         {view === "summary" && (
           <div className="max-w-7xl mx-auto py-12 px-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2620,7 +2616,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== PDF PREVIEW ==================== */}
+        {/* PDF PREVIEW */}
         {pdfPreviewUrl && (
           <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-6 backdrop-blur-sm">
             <div className="bg-white w-full h-full max-w-4xl rounded-2xl flex flex-col overflow-hidden">
@@ -2641,7 +2637,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== PPT PREVIEW ==================== */}
+        {/* PPT PREVIEW */}
         {isPptPreviewOpen && (
           <div className="fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 backdrop-blur-md">
             <div className="w-full max-w-4xl flex flex-col gap-4">
