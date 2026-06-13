@@ -50,6 +50,21 @@ import {
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
 // ==========================================
+// KONSTANTA & UTILITAS
+// ==========================================
+const MAX_FILE_SIZE_FRONTEND = 2 * 1024 * 1024; // 2 MB
+const MAX_INPUT_LENGTH = 1500;
+const MAX_CLARIFICATION_LENGTH = 500;
+
+const ERROR_MESSAGES = {
+  ERROR_401_UNAUTHORIZED: "Sistem mengalami masalah autentikasi API Key. Harap hubungi administrator.",
+  ERROR_402_NO_BALANCE: "Batas kuota simulasi operasional penuh (Saldo API Habis).",
+  ERROR_429_LIMIT: "Server sedang sibuk memproses antrean data. Mohon tunggu 5 detik dan coba lagi.",
+  ERROR_400_INVALID: "Format permintaan tidak valid. Silakan periksa input dan coba lagi.",
+  ERROR_503_OVERLOAD: "Infrastruktur DeepSeek global sedang mengalami kelebihan beban. Sistem otomatis beralih ke mode antrean.",
+};
+
+// ==========================================
 // KOMPONEN TOMBOL LOGIN MICROSOFT (REUSABLE)
 // ==========================================
 function MicrosoftLoginButton({ size = "small" }) {
@@ -1410,6 +1425,7 @@ export default function App() {
   const [wsConnected, setWsConnected] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [hoveredNode, setHoveredNode] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
   const ws = useRef(null);
 
@@ -1424,6 +1440,18 @@ export default function App() {
   const handleWsMessage = useCallback((event) => {
     const data = JSON.parse(event.data);
     if (data.progress) setProgress(data.progress);
+
+    if (data.step === "error") {
+      const errCode = data.error_code || "ERROR_503_OVERLOAD";
+      setApiError(errCode);
+      setCurrentLog(`System Error: ${errCode}`);
+      if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
+        setDiscussionPhase("idle");
+        setProgress(0);
+        setView("workspace");
+      }
+      return;
+    }
 
     if (data.step === "roles") {
       setCurrentLog("System assigning optimized multi-agent roles...");
@@ -1481,7 +1509,7 @@ export default function App() {
     window.addEventListener("mousemove", handleMouseMove);
 
     ws.current = new WebSocket(
-      "wss://muhammadfaiz2787-argunex-ai-backend.hf.space/ws",
+      "ws://127.0.0.1:8000/ws",
     );
     ws.current.onmessage = handleWsMessage;
     ws.current.onopen = () => {
@@ -1504,6 +1532,14 @@ export default function App() {
   // ==========================================
   const processFile = async (file) => {
     if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE_FRONTEND) {
+      setFileUploadError("File terlalu besar. Ukuran maksimal: 2MB");
+      setCurrentLog("❌ File upload rejected: exceeds 2MB limit");
+      setIsProcessingFile(false);
+      return;
+    }
+
     setSelectedFile(file);
     setFileUploadError("");
     setExtractedDocText("");
@@ -1514,7 +1550,7 @@ export default function App() {
       formData.append("file", file);
 
       const response = await fetch(
-        "https://muhammadfaiz2787-argunex-ai-backend.hf.space/upload",
+        "http://127.0.0.1:8000/upload",
         {
           method: "POST",
           body: formData,
@@ -1751,6 +1787,29 @@ export default function App() {
         .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
       `}</style>
 
+      {/* ADVANCED API ERROR HANDLING — VISUAL ALERT MODAL */}
+      {apiError && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-100 animate-fadeIn">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                <AlertOctagon className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">System Alert</h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              {ERROR_MESSAGES[apiError] || "Terjadi kesalahan pada sistem. Silakan coba lagi."}
+            </p>
+            <button
+              onClick={() => setApiError(null)}
+              className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* NAV */}
       <nav className="bg-white/80 backdrop-blur-xl border-b border-[#e1e3e4] sticky top-0 z-50">
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
@@ -1962,9 +2021,17 @@ export default function App() {
                     }
                   }}
                   onPaste={handlePaste}
+                  maxLength={MAX_INPUT_LENGTH}
                   className="w-full border-none focus:ring-0 text-base bg-transparent resize-none p-2 placeholder:text-gray-400 outline-none h-32"
                   placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)"
                 />
+
+                {/* REAL-TIME CHARACTER COUNTER — MASALAH UTAMA */}
+                <div className="flex justify-end px-2">
+                  <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
+                    {input.length}/{MAX_INPUT_LENGTH}
+                  </span>
+                </div>
 
                 {selectedFile && (
                   <div className="mx-2 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-fadeIn">
@@ -2055,7 +2122,7 @@ export default function App() {
                     </label>
                     <span className="text-[11px] text-gray-400 font-medium leading-tight">
                       Upload, Paste (Ctrl+V), or Drag & Drop • Word, Excel, PDF,
-                      PNG, JPG
+                      PNG, JPG • Max 2MB
                     </span>
                   </div>
                   <button
@@ -2241,9 +2308,16 @@ export default function App() {
                         sendAnswer();
                       }
                     }}
-                    className="w-full p-4 border border-slate-200 rounded-xl mb-4 text-base font-medium outline-none focus:ring-2 focus:ring-[#4648d4] bg-slate-50 resize-none h-28"
+                    maxLength={MAX_CLARIFICATION_LENGTH}
+                    className="w-full p-4 border border-slate-200 rounded-xl mb-2 text-base font-medium outline-none focus:ring-2 focus:ring-[#4648d4] bg-slate-50 resize-none h-28"
                     placeholder="Provide the missing parameter..."
                   />
+                  {/* REAL-TIME CHARACTER COUNTER — KLARIFIKASI MODERATOR */}
+                  <div className="flex justify-end mb-4">
+                    <span className={`text-[11px] font-medium ${input.length >= MAX_CLARIFICATION_LENGTH ? "text-red-500" : "text-slate-400"}`}>
+                      {input.length}/{MAX_CLARIFICATION_LENGTH}
+                    </span>
+                  </div>
                   <button
                     onClick={sendAnswer}
                     className="w-full bg-[#4648d4] text-white py-3.5 rounded-xl font-bold hover:bg-[#6063ee] transition-all shadow-md text-base active:scale-[0.98]"
@@ -2301,6 +2375,7 @@ export default function App() {
             </div>
 
             <div className="lg:col-span-4 flex flex-col gap-6">
+              {/* PDF DOWNLOAD CARD — TERIKAT 100% PADA files.pdf */}
               <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
@@ -2315,22 +2390,25 @@ export default function App() {
                   <button
                     onClick={() =>
                       setPdfPreviewUrl(
-                        `https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.pdf}`,
+                        `http://127.0.0.1:8000${result.files.pdf}`,
                       )
                     }
-                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                    disabled={!result.files.pdf}
+                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.ppt}`}
+                    href={`http://127.0.0.1:8000${result.files.pdf}`}
                     download
-                    className="flex items-center justify-center gap-2 bg-[#4648d4] text-white py-2.5 rounded-xl text-xs font-semibold text-center"
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
                   >
                     <Download size={14} /> Download
                   </a>
                 </div>
               </div>
+
+              {/* PPTX DOWNLOAD CARD — TERIKAT 100% PADA files.ppt */}
               <div className="bg-white rounded-[24px] p-6 border border-[#e1e3e4] shadow-sm">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -2351,14 +2429,15 @@ export default function App() {
                       setCurrentSlideIndex(0);
                       setIsPptPreviewOpen(true);
                     }}
-                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                    disabled={!result.files.ppt}
+                    className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Eye size={14} /> Preview
                   </button>
                   <a
-                    href={`https://muhammadfaiz2787-argunex-ai-backend.hf.space${result.files.ppt}`}
+                    href={`http://127.0.0.1:8000${result.files.ppt}`}
                     download
-                    className="flex items-center justify-center gap-2 bg-[#4648d4] text-white py-2.5 rounded-xl text-xs font-semibold text-center"
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"}`}
                   >
                     <Download size={14} /> Download
                   </a>
