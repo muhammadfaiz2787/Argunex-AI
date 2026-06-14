@@ -46,7 +46,7 @@ import {
   ImageIcon,
   FileIcon,
   UploadCloud,
-  Bot,
+  Bot
 } from "lucide-react";
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
@@ -64,16 +64,11 @@ const MAX_INPUT_LENGTH = 1500;
 const MAX_CLARIFICATION_LENGTH = 500;
 
 const ERROR_MESSAGES = {
-  ERROR_401_UNAUTHORIZED:
-    "Sistem mengalami masalah autentikasi API Key. Harap hubungi administrator.",
-  ERROR_402_NO_BALANCE:
-    "Batas kuota simulasi operasional penuh (Saldo API Habis).",
-  ERROR_429_LIMIT:
-    "Server sedang sibuk memproses antrean data. Mohon tunggu 5 detik dan coba lagi.",
-  ERROR_400_INVALID:
-    "Format permintaan tidak valid. Silakan periksa input dan coba lagi.",
-  ERROR_503_OVERLOAD:
-    "Infrastruktur DeepSeek global sedang mengalami kelebihan beban. Sistem otomatis beralih ke mode antrean.",
+  ERROR_401_UNAUTHORIZED: "Sistem mengalami masalah autentikasi API Key. Harap hubungi administrator.",
+  ERROR_402_NO_BALANCE: "Batas kuota simulasi operasional penuh (Saldo API Habis).",
+  ERROR_429_LIMIT: "Server sedang sibuk memproses antrean data. Mohon tunggu 5 detik dan coba lagi.",
+  ERROR_400_INVALID: "Format permintaan tidak valid. Silakan periksa input dan coba lagi.",
+  ERROR_503_OVERLOAD: "Infrastruktur DeepSeek global sedang mengalami kelebihan beban. Sistem otomatis beralih ke mode antrean.",
 };
 
 // ==========================================
@@ -800,24 +795,15 @@ function SimulationView({
     // Validasi 1: Pastikan simulationResults ada
     if (!simulationResults) {
       console.warn("[Confirm] simulationResults is null/undefined");
-      setToast({
-        type: "info",
-        message: "Simulation results not available yet.",
-      });
+      setToast({ type: "info", message: "Simulation results not available yet." });
       setTimeout(() => setToast(null), 3000);
       return;
     }
 
     // Validasi 2: Pastikan onConfirmSimulation prop adalah function
     if (typeof onConfirmSimulation !== "function") {
-      console.error(
-        "[Confirm] onConfirmSimulation prop is not a function!",
-        onConfirmSimulation,
-      );
-      setToast({
-        type: "info",
-        message: "System error: confirm handler not connected.",
-      });
+      console.error("[Confirm] onConfirmSimulation prop is not a function!", onConfirmSimulation);
+      setToast({ type: "info", message: "System error: confirm handler not connected." });
       setTimeout(() => setToast(null), 3000);
       return;
     }
@@ -848,10 +834,7 @@ function SimulationView({
       setToast({ type: "success", message: "Proceeding to Action Plan..." });
     } catch (err) {
       console.error("[Confirm] Error calling onConfirmSimulation:", err);
-      setToast({
-        type: "info",
-        message: "Failed to proceed. Please try again.",
-      });
+      setToast({ type: "info", message: "Failed to proceed. Please try again." });
     } finally {
       setTimeout(() => setIsConfirming(false), 2000);
       setTimeout(() => setToast(null), 3000);
@@ -925,12 +908,10 @@ function SimulationView({
             </h3>
 
             <div className="relative">
-              <p
-                className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? "line-clamp-3" : ""}`}
-              >
+              <p className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? 'line-clamp-3' : ''}`}>
                 {simulationData?.original_problem || "No problem description"}
               </p>
-              {simulationData?.original_problem?.length > 150 && (
+              {(simulationData?.original_problem?.length > 150) && (
                 <button
                   onClick={() => setIsProblemExpanded(!isProblemExpanded)}
                   className="text-[#4648d4] text-[10px] font-bold mt-1 hover:underline focus:outline-none"
@@ -1090,10 +1071,7 @@ function SimulationView({
                       );
                     }
                     return (
-                      <div
-                        key={i}
-                        className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed"
-                      >
+                      <div key={i} className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed">
                         {line}
                       </div>
                     );
@@ -1566,9 +1544,7 @@ export default function App() {
       setCurrentLog(`✅ ${filename} downloaded successfully.`);
     } catch (err) {
       console.error("Download failed:", err);
-      setCurrentLog(
-        `❌ Download failed: ${err.message}. Try using the Preview button.`,
-      );
+      setCurrentLog(`❌ Download failed: ${err.message}. Try using the Preview button.`);
     }
   };
 
@@ -1578,26 +1554,23 @@ export default function App() {
     return { ...styleObj, name: name, id: `dyn_agent_${idx}` };
   });
 
-  const handleAgentClick = useCallback(
-    (agentName) => {
-      const agentMessages = messages.filter((m) => m.agent === agentName);
+  const handleAgentClick = useCallback((agentName) => {
+    const agentMessages = messages.filter((m) => m.agent === agentName);
 
-      if (agentMessages.length === 0) {
-        setSelectedAgentText({
-          name: agentName,
-          text: `[${agentName}]\n\nAgen ini telah ditugaskan untuk analisis, namun belum memberikan respons diskusi yang terekam dalam sesi ini. Agen mungkin sedang dalam proses verifikasi data atau menunggu giliran dalam alur deliberasi multi-agent.`,
-        });
-        return;
-      }
+    if (agentMessages.length === 0) {
+      setSelectedAgentText({
+        name: agentName,
+        text: `[${agentName}]\n\nAgen ini telah ditugaskan untuk analisis, namun belum memberikan respons diskusi yang terekam dalam sesi ini. Agen mungkin sedang dalam proses verifikasi data atau menunggu giliran dalam alur deliberasi multi-agent.`,
+      });
+      return;
+    }
 
-      const fullText = agentMessages
-        .map((m, idx) => `[Pernyataan ${idx + 1}]\n${m.text}`)
-        .join("\n\n");
+    const fullText = agentMessages
+      .map((m, idx) => `[Pernyataan ${idx + 1}]\n${m.text}`)
+      .join("\n\n");
 
-      setSelectedAgentText({ name: agentName, text: fullText });
-    },
-    [messages],
-  );
+    setSelectedAgentText({ name: agentName, text: fullText });
+  }, [messages]);
 
   const handleWsMessage = useCallback((event) => {
     try {
@@ -1606,10 +1579,7 @@ export default function App() {
 
       if (data.step === "error") {
         const errCode = data.error_code || "ERROR_503_OVERLOAD";
-        if (
-          errCode === "ERROR_401_UNAUTHORIZED" ||
-          errCode === "ERROR_402_NO_BALANCE"
-        ) {
+        if (errCode === "ERROR_401_UNAUTHORIZED" || errCode === "ERROR_402_NO_BALANCE") {
           setApiError(errCode);
           setDiscussionPhase("idle");
           setProgress(0);
@@ -1629,16 +1599,12 @@ export default function App() {
         }
         setCurrentLog(`Roles assigned: ${data.roles?.join(", ")}`);
       } else if (data.step === "discussing") {
-        const agentName =
-          typeof data.agent === "string" ? data.agent : "System Agent";
+        const agentName = typeof data.agent === "string" ? data.agent : "System Agent";
         const agentText = typeof data.text === "string" ? data.text : "";
         if (agentName.includes("Reviewer")) {
           setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
         } else {
-          setMessages((prev) => [
-            ...prev,
-            { agent: agentName, text: agentText },
-          ]);
+          setMessages((prev) => [...prev, { agent: agentName, text: agentText }]);
           setActiveAgent(agentName);
           setCurrentLog(`${agentName}: ${agentText.substring(0, 80)}...`);
         }
@@ -1668,32 +1634,19 @@ export default function App() {
           setPptSlides(data.slides_preview);
         } else {
           // Fallback: ekstrak slides dari content jika backend tidak kirim slides_preview
-          const lines = (data.content || "").split("\n");
+          const lines = (data.content || "").split('\n');
           const fallbackSlides = [];
           let currentSlide = null;
           for (const line of lines) {
-            if (
-              line.startsWith("# ") ||
-              line.startsWith("## ") ||
-              line.startsWith("### ")
-            ) {
+            if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
               if (currentSlide) fallbackSlides.push(currentSlide);
-              currentSlide = { title: line.replace(/#+ /, ""), bullets: [] };
-            } else if (currentSlide && line.trim().startsWith("- ")) {
-              currentSlide.bullets.push(line.replace("- ", ""));
+              currentSlide = { title: line.replace(/#+ /, ''), bullets: [] };
+            } else if (currentSlide && line.trim().startsWith('- ')) {
+              currentSlide.bullets.push(line.replace('- ', ''));
             }
           }
           if (currentSlide) fallbackSlides.push(currentSlide);
-          setPptSlides(
-            fallbackSlides.length > 0
-              ? fallbackSlides
-              : [
-                  {
-                    title: "Strategic Blueprint",
-                    bullets: ["Report generated successfully."],
-                  },
-                ],
-          );
+          setPptSlides(fallbackSlides.length > 0 ? fallbackSlides : [{ title: "Strategic Blueprint", bullets: ["Report generated successfully."] }]);
         }
         setView("summary");
         setCurrentLog(
@@ -1712,10 +1665,7 @@ export default function App() {
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    if (
-      ws.current?.readyState === WebSocket.OPEN ||
-      ws.current?.readyState === WebSocket.CONNECTING
-    ) {
+    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
@@ -1949,38 +1899,33 @@ export default function App() {
   // ==========================================
   // FIX: handleConfirmSimulation — Validasi WebSocket & Error Handling
   // ==========================================
-  const handleConfirmSimulation = useCallback(
-    (simulationSummary) => {
-      if (!ws.current) {
-        console.error("[WS] WebSocket instance is null");
-        setCurrentLog("❌ WebSocket not initialized. Cannot proceed.");
-        return;
-      }
+  const handleConfirmSimulation = useCallback((simulationSummary) => {
+    if (!ws.current) {
+      console.error("[WS] WebSocket instance is null");
+      setCurrentLog("❌ WebSocket not initialized. Cannot proceed.");
+      return;
+    }
 
-      if (ws.current.readyState !== WebSocket.OPEN) {
-        console.error("[WS] WebSocket not open. State:", ws.current.readyState);
-        setCurrentLog("❌ Connection lost. Reconnecting...");
-        connectWebSocket();
-        return;
-      }
+    if (ws.current.readyState !== WebSocket.OPEN) {
+      console.error("[WS] WebSocket not open. State:", ws.current.readyState);
+      setCurrentLog("❌ Connection lost. Reconnecting...");
+      connectWebSocket();
+      return;
+    }
 
-      try {
-        const payload = {
-          type: "confirm_simulation",
-          simulation_summary: simulationSummary,
-        };
-        console.log("[WS] Sending confirm_simulation:", payload);
-        ws.current.send(JSON.stringify(payload));
-        setCurrentLog(
-          "✅ Simulation confirmed. Compiling Action Plan & SOP...",
-        );
-      } catch (err) {
-        console.error("[WS] Failed to send confirm_simulation:", err);
-        setCurrentLog(`❌ Failed to send confirmation: ${err.message}`);
-      }
-    },
-    [connectWebSocket],
-  );
+    try {
+      const payload = {
+        type: "confirm_simulation",
+        simulation_summary: simulationSummary,
+      };
+      console.log("[WS] Sending confirm_simulation:", payload);
+      ws.current.send(JSON.stringify(payload));
+      setCurrentLog("✅ Simulation confirmed. Compiling Action Plan & SOP...");
+    } catch (err) {
+      console.error("[WS] Failed to send confirm_simulation:", err);
+      setCurrentLog(`❌ Failed to send confirmation: ${err.message}`);
+    }
+  }, [connectWebSocket]);
 
   const handleSkipSimulation = () => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -2080,8 +2025,7 @@ export default function App() {
               <h3 className="text-lg font-bold text-slate-900">System Alert</h3>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed mb-6">
-              {ERROR_MESSAGES[apiError] ||
-                "Terjadi kesalahan pada sistem. Silakan coba lagi."}
+              {ERROR_MESSAGES[apiError] || "Terjadi kesalahan pada sistem. Silakan coba lagi."}
             </p>
             <button
               onClick={() => setApiError(null)}
@@ -2308,9 +2252,7 @@ export default function App() {
                 />
 
                 <div className="flex justify-end px-2">
-                  <span
-                    className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}
-                  >
+                  <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                     {input.length}/{MAX_INPUT_LENGTH}
                   </span>
                 </div>
@@ -2511,22 +2453,11 @@ export default function App() {
                         const latestMsg =
                           agentMessages[agentMessages.length - 1];
                         const status =
-                          activeAgent === agent.name
-                            ? "active"
-                            : agentMessages.length > 0
-                              ? "completed"
-                              : "idle";
+                          activeAgent === agent.name ? "active" : (agentMessages.length > 0 ? "completed" : "idle");
 
                         const displayText = () => {
-                          if (
-                            latestMsg &&
-                            latestMsg.text &&
-                            latestMsg.text.trim().length > 3
-                          ) {
-                            return (
-                              latestMsg.text.substring(0, 100) +
-                              (latestMsg.text.length > 100 ? "..." : "")
-                            );
+                          if (latestMsg && latestMsg.text && latestMsg.text.trim().length > 3) {
+                            return latestMsg.text.substring(0, 100) + (latestMsg.text.length > 100 ? "..." : "");
                           }
                           if (status === "active") {
                             return `Processing ${agent.name.toLowerCase()} analysis...`;
@@ -2622,9 +2553,7 @@ export default function App() {
                     placeholder="Provide the missing parameter..."
                   />
                   <div className="flex justify-end mb-4">
-                    <span
-                      className={`text-[11px] font-medium ${input.length >= MAX_CLARIFICATION_LENGTH ? "text-red-500" : "text-slate-400"}`}
-                    >
+                    <span className={`text-[11px] font-medium ${input.length >= MAX_CLARIFICATION_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                       {input.length}/{MAX_CLARIFICATION_LENGTH}
                     </span>
                   </div>
@@ -2693,9 +2622,7 @@ export default function App() {
                       <FileText size={24} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-base">
-                        Analysis_Report.pdf
-                      </h3>
+                      <h3 className="font-bold text-base">Analysis_Report.pdf</h3>
                       <p className="text-xs text-gray-400">Ready to download</p>
                     </div>
                   </div>
@@ -2710,12 +2637,7 @@ export default function App() {
                       <Eye size={14} /> Preview
                     </button>
                     <button
-                      onClick={() =>
-                        forceDownload(
-                          `${API_BASE}${result.files.pdf}`,
-                          "Analysis_Report.pdf",
-                        )
-                      }
+                      onClick={() => forceDownload(`${API_BASE}${result.files.pdf}`, "Analysis_Report.pdf")}
                       disabled={!result.files.pdf}
                       className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
                     >
@@ -2751,12 +2673,7 @@ export default function App() {
                       <Eye size={14} /> Preview
                     </button>
                     <button
-                      onClick={() =>
-                        forceDownload(
-                          `${API_BASE}${result.files.ppt}`,
-                          "Executive_Slides.pptx",
-                        )
-                      }
+                      onClick={() => forceDownload(`${API_BASE}${result.files.ppt}`, "Executive_Slides.pptx")}
                       disabled={!result.files.ppt}
                       className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
                     >
@@ -2766,145 +2683,40 @@ export default function App() {
                 </div>
               </div>
 
-              {/* =========================================
-    SECTION ARGUNEX ANALYSIS METRICS 
-========================================= */}
+              {/* ANALYSIS METRICS DASHBOARD */}
               {analysisMetrics && (
-                <div className="mt-8 mb-12 p-6 bg-white border border-gray-200 rounded-xl shadow-sm font-sans">
-                  <div className="mb-6">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 uppercase tracking-wide">
-                      <svg
-                        className="w-5 h-5 text-indigo-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                        />
-                      </svg>
-                      Argunex Analysis Metrics
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Computed automatically via Multi-Agent Audit & Validation
-                      Engine
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* 1. Strategic Confidence */}
-                    <div
-                      className={`p-4 rounded-lg border flex flex-col justify-between 
-        ${
-          analysisMetrics.strategic_confidence >= 90
-            ? "bg-green-50 border-green-200"
-            : analysisMetrics.strategic_confidence >= 70
-              ? "bg-yellow-50 border-yellow-200"
-              : "bg-red-50 border-red-200"
-        }`}
-                    >
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Strategic Confidence
-                      </span>
-                      <div
-                        className={`text-4xl font-bold 
-          ${
-            analysisMetrics.strategic_confidence >= 90
-              ? "text-green-700"
-              : analysisMetrics.strategic_confidence >= 70
-                ? "text-yellow-700"
-                : "text-red-700"
-          }`}
-                      >
-                        {analysisMetrics.strategic_confidence}%
-                      </div>
-                    </div>
-
-                    {/* 2. Analysis Reliability */}
-                    <div
-                      className={`p-4 rounded-lg border flex flex-col justify-between 
-        ${
-          analysisMetrics.analysis_reliability >= 90
-            ? "bg-green-50 border-green-200"
-            : analysisMetrics.analysis_reliability >= 70
-              ? "bg-yellow-50 border-yellow-200"
-              : "bg-red-50 border-red-200"
-        }`}
-                    >
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Analysis Reliability
-                      </span>
-                      <div
-                        className={`text-4xl font-bold 
-          ${
-            analysisMetrics.analysis_reliability >= 90
-              ? "text-green-700"
-              : analysisMetrics.analysis_reliability >= 70
-                ? "text-yellow-700"
-                : "text-red-700"
-          }`}
-                      >
-                        {analysisMetrics.analysis_reliability}%
-                      </div>
-                    </div>
-
-                    {/* 3. Consensus Strength */}
-                    <div
-                      className={`p-4 rounded-lg border flex flex-col justify-between 
-        ${
-          analysisMetrics.consensus_strength >= 90
-            ? "bg-green-50 border-green-200"
-            : analysisMetrics.consensus_strength >= 75
-              ? "bg-yellow-50 border-yellow-200"
-              : "bg-red-50 border-red-200"
-        }`}
-                    >
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Consensus Strength
-                      </span>
-                      <div
-                        className={`text-4xl font-bold 
-          ${
-            analysisMetrics.consensus_strength >= 90
-              ? "text-green-700"
-              : analysisMetrics.consensus_strength >= 75
-                ? "text-yellow-700"
-                : "text-red-700"
-          }`}
-                      >
-                        {analysisMetrics.consensus_strength}%
-                      </div>
-                    </div>
-
-                    {/* 4. Hallucination Risk */}
-                    <div
-                      className={`p-4 rounded-lg border flex flex-col justify-between 
-        ${
-          analysisMetrics.hallucination_risk <= 5
-            ? "bg-green-50 border-green-200"
-            : analysisMetrics.hallucination_risk <= 15
-              ? "bg-yellow-50 border-yellow-200"
-              : "bg-red-50 border-red-200"
-        }`}
-                    >
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Hallucination Risk
-                      </span>
-                      <div
-                        className={`text-4xl font-bold 
-          ${
-            analysisMetrics.hallucination_risk <= 5
-              ? "text-green-700"
-              : analysisMetrics.hallucination_risk <= 15
-                ? "text-yellow-700"
-                : "text-red-700"
-          }`}
-                      >
-                        {analysisMetrics.hallucination_risk}%
-                      </div>
+                <div className="lg:col-span-12 mt-6">
+                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-[#4648d4]" />
+                      ARGUNEX ANALYSIS METRICS
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: "Strategic Confidence", value: analysisMetrics.strategic_confidence, key: "sc", good: [90,100], warn: [70,89], bad: [0,69] },
+                        { label: "Analysis Reliability", value: analysisMetrics.analysis_reliability, key: "ar", good: [90,100], warn: [70,89], bad: [0,69] },
+                        { label: "Consensus Strength", value: analysisMetrics.consensus_strength, key: "cs", good: [90,100], warn: [75,89], bad: [0,74] },
+                        { label: "Hallucination Risk", value: analysisMetrics.hallucination_risk, key: "hr", good: [0,5], warn: [5.1,15], bad: [15.1,100] }
+                      ].map((metric) => {
+                        let colorClass = "text-emerald-600";
+                        let bgClass = "bg-emerald-50";
+                        if (metric.key === "hr") {
+                          if (metric.value <= 5) { colorClass = "text-emerald-600"; bgClass = "bg-emerald-50"; }
+                          else if (metric.value <= 15) { colorClass = "text-amber-600"; bgClass = "bg-amber-50"; }
+                          else { colorClass = "text-red-600"; bgClass = "bg-red-50"; }
+                        } else {
+                          if (metric.value >= 90) { colorClass = "text-emerald-600"; bgClass = "bg-emerald-50"; }
+                          else if (metric.value >= 70) { colorClass = "text-amber-600"; bgClass = "bg-amber-50"; }
+                          else { colorClass = "text-red-600"; bgClass = "bg-red-50"; }
+                        }
+                        const displayValue = metric.key === "hr" ? metric.value : metric.value;
+                        return (
+                          <div key={metric.key} className={`p-5 rounded-xl ${bgClass} border border-slate-100 shadow-sm`}>
+                            <p className="text-sm font-medium text-slate-600 mb-1">{metric.label}</p>
+                            <p className={`text-3xl font-bold ${colorClass}`}>{displayValue}%</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
