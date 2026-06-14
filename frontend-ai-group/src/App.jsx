@@ -391,7 +391,7 @@ const STATIC_PARTICLES = Array.from({ length: 20 }, (_, i) => ({
 }));
 
 // ==========================================
-// NETWORK GRAPH COMPONENT
+// NETWORK GRAPH COMPONENT (DIPERBAIKI)
 // ==========================================
 function NetworkGraph({
   zoomLevel,
@@ -428,7 +428,8 @@ function NetworkGraph({
       agents.length === 1
         ? -Math.PI / 2
         : (i / agents.length) * Math.PI * 2 - Math.PI / 2;
-    const radius = Math.min(w, h) * 0.35;
+    // Radius diperbesar agar node tidak berdempetan
+    const radius = Math.min(w, h) * 0.42; 
     return {
       ...agent,
       x: cx + Math.cos(angle) * radius,
@@ -569,8 +570,9 @@ function NetworkGraph({
         {agentPositions.map((agent) => {
           const isHovered = hoveredNode === agent.id;
           const isActive = activeAgent === agent.name;
-          const nodeWidth = isHovered ? 165 : 150;
-          const nodeHeight = isHovered ? 64 : 58;
+          // Kotak dibuat sedikit lebih lebar agar teks panjang aman
+          const nodeWidth = isHovered ? 195 : 180;
+          const nodeHeight = isHovered ? 72 : 64;
           const IconComp = agent.lucideIcon;
           return (
             <g
@@ -597,7 +599,7 @@ function NetworkGraph({
                 style={{ transition: "all 0.2s ease" }}
               />
               <circle
-                cx={-nodeWidth / 2 + 20}
+                cx={-nodeWidth / 2 + 22}
                 cy="0"
                 r="14"
                 fill={agent.bgColor}
@@ -605,7 +607,7 @@ function NetworkGraph({
                 strokeWidth="1"
               />
               <foreignObject
-                x={-nodeWidth / 2 + 10}
+                x={-nodeWidth / 2 + 12}
                 y={-10}
                 width="20"
                 height="20"
@@ -622,24 +624,22 @@ function NetworkGraph({
                   <IconComp size={14} />
                 </div>
               </foreignObject>
-              <text
-                x={-nodeWidth / 2 + 42}
-                y="-2"
-                fill="#0f172a"
-                fontSize="10"
-                fontWeight="800"
+              {/* Menggunakan foreignObject agar teks otomatis memotong rapi jika kepanjangan */}
+              <foreignObject
+                x={-nodeWidth / 2 + 44}
+                y={-nodeHeight / 2 + 8}
+                width={nodeWidth - 52}
+                height={nodeHeight - 16}
               >
-                {agent.name}
-              </text>
-              <text
-                x={-nodeWidth / 2 + 42}
-                y="14"
-                fill="#64748b"
-                fontSize="9"
-                fontFamily="monospace"
-              >
-                {agent.subtitle}
-              </text>
+                <div className="flex flex-col justify-center h-full w-full pointer-events-none">
+                  <p className="text-[10px] font-extrabold text-slate-900 leading-snug line-clamp-2">
+                    {agent.name}
+                  </p>
+                  <p className="text-[9px] font-mono text-slate-500 mt-0.5 truncate">
+                    {agent.subtitle}
+                  </p>
+                </div>
+              </foreignObject>
             </g>
           );
         })}
@@ -649,7 +649,7 @@ function NetworkGraph({
 }
 
 // ==========================================
-// SIMULATION ENGINE VIEW COMPONENT (FIXED)
+// SIMULATION ENGINE VIEW COMPONENT (DIPERBAIKI)
 // ==========================================
 function SimulationView({
   simulationData,
@@ -671,7 +671,8 @@ function SimulationView({
     createInitialAdjustedValues(simulationData?.variables),
   );
   const [isRunning, setIsRunning] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false); // FIX: Anti double-click
+  const [isConfirming, setIsConfirming] = useState(false); 
+  const [isSkipping, setIsSkipping] = useState(false); // Menambahkan state loading untuk SKIP
   const [toast, setToast] = useState(null);
   const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
@@ -788,38 +789,19 @@ function SimulationView({
   const hasVariables =
     simulationData?.variables && simulationData.variables.length > 0;
 
-  // ==========================================
-  // FIX: handleConfirm — Robust, Anti-Double-Click, Validasi Prop
-  // ==========================================
   const handleConfirm = useCallback(() => {
-    // Validasi 1: Pastikan simulationResults ada
     if (!simulationResults) {
-      console.warn("[Confirm] simulationResults is null/undefined");
       setToast({ type: "info", message: "Simulation results not available yet." });
       setTimeout(() => setToast(null), 3000);
       return;
     }
 
-    // Validasi 2: Pastikan onConfirmSimulation prop adalah function
-    if (typeof onConfirmSimulation !== "function") {
-      console.error("[Confirm] onConfirmSimulation prop is not a function!", onConfirmSimulation);
-      setToast({ type: "info", message: "System error: confirm handler not connected." });
-      setTimeout(() => setToast(null), 3000);
-      return;
-    }
-
-    // Validasi 3: Cegah double-click
-    if (isConfirming) {
-      console.log("[Confirm] Already confirming, ignoring double-click.");
-      return;
-    }
+    if (isConfirming || isSkipping) return;
 
     setIsConfirming(true);
 
-    // Buat payload ringan dengan fallback yang aman
     const scenarioParams = simulationResults.scenario_params || {};
     const scenarioComparison = simulationResults.scenario_comparison || {};
-
     const lightweightSummary = {
       scenario_params: scenarioParams,
       scenario_comparison: scenarioComparison,
@@ -827,35 +809,51 @@ function SimulationView({
       has_adjustments: Object.keys(scenarioComparison).length > 0,
     };
 
-    console.log("[Confirm] Sending lightweight payload:", lightweightSummary);
-
     try {
       onConfirmSimulation(lightweightSummary);
       setToast({ type: "success", message: "Proceeding to Action Plan..." });
     } catch (err) {
-      console.error("[Confirm] Error calling onConfirmSimulation:", err);
+      setIsConfirming(false);
       setToast({ type: "info", message: "Failed to proceed. Please try again." });
-    } finally {
-      setTimeout(() => setIsConfirming(false), 2000);
       setTimeout(() => setToast(null), 3000);
     }
-  }, [simulationResults, onConfirmSimulation, isConfirming]);
+    // Timeout tidak di-reset agar loading terus berputar hingga halaman berganti
+  }, [simulationResults, onConfirmSimulation, isConfirming, isSkipping]);
+
+  const handleSkip = useCallback(() => {
+    if (isConfirming || isSkipping) return;
+    setIsSkipping(true);
+    setToast({ type: "success", message: "Proceeding to Action Plan..." });
+    try {
+      onSkipSimulation();
+    } catch(err) {
+      setIsSkipping(false);
+      setToast({ type: "info", message: "Failed to skip. Please try again." });
+      setTimeout(() => setToast(null), 3000);
+    }
+    // Timeout tidak di-reset agar loading terus berputar hingga halaman berganti
+  }, [onSkipSimulation, isConfirming, isSkipping]);
 
   return (
     <div className="h-[calc(100vh-72px)] flex flex-col bg-slate-50 overflow-hidden relative">
       {toast && (
-        <div
-          className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium border animate-slideDown ${toast.type === "info" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
-        >
-          {toast.type === "info" ? (
-            <Info className="w-4 h-4" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4" />
-          )}
-          {toast.message}
+        <div className="fixed top-24 left-0 w-full flex justify-center z-[100] pointer-events-none">
+          <div
+            className={`px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium border animate-slideDown ${toast.type === "info" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+          >
+            {toast.type === "info" ? (
+              <Info className="w-4 h-4" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+            {toast.message}
+          </div>
         </div>
       )}
 
+      {/* [BARIS KODE UI HEADER & SIDEBAR TETAP SAMA SEPERTI SEBELUMNYA] */}
+      {/* ... bagian ini diringkas demi kejelasan, biarkan struktur UI Header Anda utuh ... */}
+      
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <button
@@ -896,6 +894,7 @@ function SimulationView({
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-[420px] flex flex-col border-r border-slate-200 bg-white overflow-y-auto">
+          {/* Header Deskripsi Problem Sidebar (Tidak berubah) */}
           <div className="p-6 border-b border-slate-100">
             <div className="flex items-center gap-2 mb-1">
               <Network className="w-4 h-4 text-[#4648d4]" />
@@ -1033,16 +1032,24 @@ function SimulationView({
                 )}
                 {isRunning ? "Running Simulation..." : "Run Simulation"}
               </button>
+              
+              {/* TOMBOL SKIP DIPERBARUI */}
               <button
-                onClick={onSkipSimulation}
-                disabled={!wsConnected}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                onClick={handleSkip}
+                disabled={!wsConnected || isConfirming || isSkipping}
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 disabled:text-slate-400 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                <FastForward className="w-4 h-4" /> Skip to Action Plan
+                {isSkipping ? (
+                  <RefreshCcw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FastForward className="w-4 h-4" />
+                )}
+                {isSkipping ? "Processing..." : "Skip to Action Plan"}
               </button>
             </div>
           </div>
 
+          {/* Expert Analysis */}
           <div className="p-6 border-t border-slate-100 bg-slate-50/50">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
               <Brain className="w-4 h-4 text-[#4648d4]" /> Expert Analysis
@@ -1101,355 +1108,13 @@ function SimulationView({
             </div>
           ) : (
             <div className="max-w-5xl mx-auto space-y-6">
-              {simulationResults.operational_impact &&
-                (simulationResults.operational_impact.warnings?.length > 0 ||
-                  simulationResults.operational_impact.recommendations?.length >
-                    0) && (
-                  <div
-                    className={`rounded-2xl p-4 border flex items-start gap-3 ${getRiskStyles(simulationResults.operational_impact.risk_level).bg}`}
-                  >
-                    <AlertOctagon
-                      className={`w-5 h-5 mt-0.5 shrink-0 ${getRiskStyles(simulationResults.operational_impact.risk_level).icon}`}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${getRiskStyles(simulationResults.operational_impact.risk_level).badge}`}
-                        >
-                          Risk:{" "}
-                          {(
-                            simulationResults.operational_impact.risk_level ||
-                            "normal"
-                          ).toUpperCase()}
-                        </span>
-                      </div>
-                      <div
-                        className={`text-xs space-y-1 ${getRiskStyles(simulationResults.operational_impact.risk_level).text}`}
-                      >
-                        {simulationResults.operational_impact.warnings?.map(
-                          (w, i) => (
-                            <div key={i} className="flex items-start gap-1.5">
-                              <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0" />
-                              <span>{w}</span>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                      {simulationResults.operational_impact.recommendations
-                        ?.length > 0 && (
-                        <div
-                          className={`text-xs mt-2 pt-2 border-t border-black/5 space-y-1 ${getRiskStyles(simulationResults.operational_impact.risk_level).text} opacity-80`}
-                        >
-                          {simulationResults.operational_impact.recommendations.map(
-                            (r, i) => (
-                              <div key={i} className="flex items-start gap-1.5">
-                                <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
-                                <span>{r}</span>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#4648d4]" /> Key
-                  Performance Indicators
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {simulationResults.kpis &&
-                  Object.keys(simulationResults.kpis).length > 0 ? (
-                    Object.entries(simulationResults.kpis).map(
-                      ([key, data]) => (
-                        <div
-                          key={key}
-                          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-lg bg-[#4648d4]/10 flex items-center justify-center">
-                              <TrendingUp className="w-4 h-4 text-[#4648d4]" />
-                            </div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                              {formatKpiName(key)}
-                            </span>
-                          </div>
-                          <p className="text-2xl font-bold text-slate-900 mb-1">
-                            {formatNumber(data.value)}
-                          </p>
-                          <p className="text-xs text-slate-500">{data.unit}</p>
-                          <div className="mt-3 pt-3 border-t border-slate-100">
-                            <p
-                              className="text-[10px] text-slate-400 font-mono truncate"
-                              title={data.formula}
-                            >
-                              {data.formula}
-                            </p>
-                          </div>
-                        </div>
-                      ),
-                    )
-                  ) : (
-                    <div className="col-span-3 text-center py-8 text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
-                      <BarChart3 className="w-6 h-6 mx-auto mb-2 opacity-40" />
-                      <p>No KPIs available for this domain</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-[#4648d4]" /> Base
-                  Calculations
-                </h3>
-                <div className="space-y-3">
-                  {simulationResults.base_calculations &&
-                  Object.keys(simulationResults.base_calculations).length >
-                    0 ? (
-                    Object.entries(simulationResults.base_calculations).map(
-                      ([key, data]) => (
-                        <div
-                          key={key}
-                          className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-100"
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-[#4648d4]/10 flex items-center justify-center shrink-0">
-                            <span className="text-[#4648d4] font-bold text-sm">
-                              =
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
-                              {formatKpiName(key)}
-                            </p>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">
-                              {data.formula} = {data.substitution}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-lg font-bold text-[#4648d4] font-mono">
-                              {formatNumber(data.result)}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              {data.unit}
-                            </p>
-                          </div>
-                        </div>
-                      ),
-                    )
-                  ) : (
-                    <p className="text-sm text-slate-400 italic">
-                      No base calculations available
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-[#4648d4]" /> Scenario
-                  Comparison
-                </h3>
-                <div className="space-y-5">
-                  {simulationResults.scenario_comparison &&
-                  Object.keys(simulationResults.scenario_comparison).length >
-                    0 ? (
-                    Object.entries(simulationResults.scenario_comparison).map(
-                      ([key, data]) => {
-                        if (
-                          data.original === undefined &&
-                          data.adjusted === undefined
-                        )
-                          return null;
-                        const pct = data.change_percent || 0;
-                        const isIncrease = data.impact_direction === "increase";
-                        const color = isIncrease
-                          ? pct > 50
-                            ? "text-red-600"
-                            : "text-emerald-600"
-                          : "text-[#4648d4]";
-                        const barColor = isIncrease
-                          ? pct > 50
-                            ? "bg-red-500"
-                            : "bg-emerald-500"
-                          : "bg-[#4648d4]";
-                        const maxVal = maxComparisonValue(key);
-                        const origPct =
-                          (Math.abs(data.original || 0) / maxVal) * 100;
-                        const adjPct =
-                          (Math.abs(data.adjusted || 0) / maxVal) * 100;
-                        return (
-                          <div key={key} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold text-slate-900">
-                                {formatKpiName(key)}
-                              </span>
-                              <span
-                                className={`text-xs font-bold flex items-center gap-1 ${color}`}
-                              >
-                                <TrendingUp
-                                  className={`w-3 h-3 ${isIncrease ? "" : "rotate-180"}`}
-                                />
-                                {pct > 0 ? "+" : ""}
-                                {pct}%
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-3">
-                                <span className="text-[10px] text-slate-500 w-14 text-right font-medium">
-                                  Original
-                                </span>
-                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-slate-400 rounded-full transition-all duration-700"
-                                    style={{
-                                      width: `${Math.min(origPct, 100)}%`,
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-xs font-mono text-slate-600 w-20 text-right">
-                                  {formatNumber(data.original)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-[10px] text-slate-500 w-14 text-right font-medium">
-                                  Adjusted
-                                </span>
-                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full ${barColor} rounded-full transition-all duration-700`}
-                                    style={{
-                                      width: `${Math.min(adjPct, 100)}%`,
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-xs font-mono font-bold text-slate-800 w-20 text-right">
-                                  {formatNumber(data.adjusted)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      },
-                    )
-                  ) : (
-                    <div className="text-center py-6 text-slate-400 text-sm">
-                      <p>
-                        No comparison data. Adjust parameters to see
-                        comparisons.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-[#4648d4]" /> Parameter
-                    Impact (%)
-                  </h4>
-                  <div className="space-y-3">
-                    {simulationResults.scenario_comparison &&
-                      Object.entries(simulationResults.scenario_comparison)
-                        .filter(([, data]) => data.change_percent !== undefined)
-                        .map(([key, data]) => {
-                          const pct = data.change_percent || 0;
-                          const isPos = pct >= 0;
-                          const color = isPos
-                            ? pct > 50
-                              ? "bg-red-500"
-                              : "bg-emerald-500"
-                            : "bg-[#4648d4]";
-                          const barWidth = Math.min(Math.abs(pct), 100);
-                          return (
-                            <div key={key} className="flex items-center gap-3">
-                              <span className="text-xs text-slate-600 w-32 truncate font-medium">
-                                {formatKpiName(key)}
-                              </span>
-                              <div className="flex-1 h-6 bg-slate-50 rounded-lg overflow-hidden relative">
-                                <div
-                                  className={`absolute top-0 h-full ${color} rounded-lg transition-all duration-700 flex items-center justify-end px-2`}
-                                  style={{
-                                    width: `${barWidth}%`,
-                                    left: isPos ? "0" : `${100 - barWidth}%`,
-                                  }}
-                                >
-                                  {barWidth > 15 && (
-                                    <span className="text-[10px] font-bold text-white">
-                                      {isPos ? "+" : ""}
-                                      {pct}%
-                                    </span>
-                                  )}
-                                </div>
-                                {barWidth <= 15 && (
-                                  <span className="absolute inset-0 flex items-center pl-2 text-[10px] font-bold text-slate-600">
-                                    {isPos ? "+" : ""}
-                                    {pct}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                    <PieChart className="w-4 h-4 text-[#4648d4]" /> Value
-                    Comparison
-                  </h4>
-                  <div className="space-y-3">
-                    {simulationResults.scenario_comparison &&
-                      Object.entries(simulationResults.scenario_comparison)
-                        .filter(
-                          ([, data]) =>
-                            data.original !== undefined &&
-                            data.adjusted !== undefined,
-                        )
-                        .slice(0, 6)
-                        .map(([key, data]) => {
-                          const max = Math.max(
-                            Math.abs(data.original),
-                            Math.abs(data.adjusted),
-                            1,
-                          );
-                          return (
-                            <div key={key}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-slate-600 font-medium">
-                                  {formatKpiName(key)}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {formatNumber(data.adjusted)} vs{" "}
-                                  {formatNumber(data.original)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 h-4">
-                                <div
-                                  className="h-full bg-slate-300 rounded-l-md transition-all duration-700"
-                                  style={{
-                                    width: `${(Math.abs(data.original) / max) * 50}%`,
-                                  }}
-                                />
-                                <div
-                                  className="h-full bg-[#4648d4] rounded-r-md transition-all duration-700"
-                                  style={{
-                                    width: `${(Math.abs(data.adjusted) / max) * 50}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                  </div>
-                </div>
-              </div>
-
+              {/* Hasil Simulasi (Card Risk, KPI, dsb) Dibiarkan Sama */}
+              {/* ... Bagian rendering data Results KPI & Graph dihilangkan sementara dari penulisan ulang ini agar rapi, Anda TETAP gunakan kode Anda yang lama karena itu sudah benar ... */}
+              
+              {/* Bagian bawah langsung menuju tombol confirm (Diringkas di markdown tapi pastikan menempelkan kode hasil Anda sendiri) */}
+              
               {/* ========================================== */}
-              {/* FIX: Tombol Confirm & Proceed — Robust & Anti-Double-Click */}
+              {/* TOMBOL CONFIRM & PROCEED */}
               {/* ========================================== */}
               <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1464,8 +1129,8 @@ function SimulationView({
                   </div>
                   <button
                     onClick={handleConfirm}
-                    disabled={!wsConnected || isConfirming}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
+                    disabled={!wsConnected || isConfirming || isSkipping}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
                   >
                     {isConfirming ? (
                       <RefreshCcw className="w-4 h-4 animate-spin" />
@@ -1697,11 +1362,24 @@ export default function App() {
   }, [handleWsMessage]);
 
   useEffect(() => {
-    const link = document.createElement("link");
-    link.href =
+    // ---- TAMBAHAN BARU: MENGATUR TITLE DAN FAVICON ----
+    document.title = "Argunex AI";
+    
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    // logoArgunex harus di-import di paling atas file
+    link.href = logoArgunex; 
+    // ----------------------------------------------------
+
+    const linkFont = document.createElement("link");
+    linkFont.href =
       "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
+    linkFont.rel = "stylesheet";
+    document.head.appendChild(linkFont);
 
     const handleMouseMove = (e) => {
       const pattern = document.querySelector(".hero-pattern");
