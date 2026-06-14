@@ -1634,8 +1634,7 @@ export default function App() {
           setPptSlides(data.slides_preview);
         } else {
           // Fallback: ekstrak slides dari content jika backend tidak kirim slides_preview
-          const lines = (data.content || "").split('
-');
+          const lines = (data.content || "").split('\n');
           const fallbackSlides = [];
           let currentSlide = null;
           for (const line of lines) {
