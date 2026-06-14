@@ -1,52 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMsal } from "@azure/msal-react";
 import {
-  FileText,
-  Download,
-  Layers,
-  AlertTriangle,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Activity,
-  Brain,
-  Cpu,
-  Network,
-  MessageSquare,
-  CheckCircle2,
-  Clock,
-  TrendingUp,
-  Shield,
-  Users,
-  BarChart3,
-  Sparkles,
-  Wrench,
-  Scale,
-  TrendingDown,
-  Plus,
-  Minus,
-  RotateCcw,
-  Calculator,
-  SlidersHorizontal,
-  ArrowRight,
-  ArrowLeft,
-  RefreshCcw,
-  Gauge,
-  PieChart,
-  LineChart,
-  AlertOctagon,
-  Lightbulb,
-  CheckCircle,
-  Play,
-  FastForward,
-  Info,
-  Loader2,
-  FileSpreadsheet,
-  ImageIcon,
-  FileIcon,
-  UploadCloud,
-  Bot
+  FileText, Download, Layers, AlertTriangle, Eye, ChevronLeft, ChevronRight, X,
+  Activity, Brain, Cpu, Network, MessageSquare, CheckCircle2, Clock, TrendingUp,
+  Shield, Users, BarChart3, Sparkles, Wrench, Scale, TrendingDown, Plus, Minus,
+  RotateCcw, Calculator, SlidersHorizontal, ArrowRight, ArrowLeft, RefreshCcw,
+  Gauge, PieChart, LineChart, AlertOctagon, Lightbulb, CheckCircle, Play, FastForward,
+  Info, Loader2, FileSpreadsheet, ImageIcon, FileIcon, UploadCloud, Bot
 } from "lucide-react";
 import logoArgunex from "./assets/logo_argunex.jpeg";
 
@@ -79,10 +39,7 @@ function MicrosoftLoginButton({ size = "small" }) {
 
   const handleLogin = async () => {
     try {
-      await instance.loginRedirect({
-        scopes: ["user.read"],
-        prompt: "select_account",
-      });
+      await instance.loginRedirect({ scopes: ["user.read"], prompt: "select_account" });
     } catch (error) {
       console.error("Login error:", error);
     }
@@ -90,10 +47,8 @@ function MicrosoftLoginButton({ size = "small" }) {
 
   if (size === "large") {
     return (
-      <button
-        onClick={handleLogin}
-        className="flex items-center justify-center w-fit mx-auto gap-3 px-8 py-4 bg-[#0078d4] hover:bg-[#005a9e] text-white rounded-2xl text-lg font-bold transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]"
-      >
+      <button onClick={handleLogin}
+        className="flex items-center justify-center w-fit mx-auto gap-3 px-8 py-4 bg-[#0078d4] hover:bg-[#005a9e] text-white rounded-2xl text-lg font-bold transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 21 21">
           <rect x="1" y="1" width="9" height="9" fill="#f25022" />
           <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
@@ -106,10 +61,8 @@ function MicrosoftLoginButton({ size = "small" }) {
   }
 
   return (
-    <button
-      onClick={handleLogin}
-      className="flex items-center gap-2 px-4 py-2 bg-[#0078d4] text-white rounded-lg text-xs font-bold hover:bg-[#005a9e] transition-colors shadow-sm"
-    >
+    <button onClick={handleLogin}
+      className="flex items-center gap-2 px-4 py-2 bg-[#0078d4] text-white rounded-lg text-xs font-bold hover:bg-[#005a9e] transition-colors shadow-sm">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 21 21">
         <rect x="1" y="1" width="9" height="9" fill="#f25022" />
         <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
@@ -134,9 +87,7 @@ function UserProfileDropdown() {
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -149,18 +100,11 @@ function UserProfileDropdown() {
     return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
   };
 
-  const handleLogout = () => {
-    setIsOpen(false);
-    instance.logoutRedirect();
-  };
-
+  const handleLogout = () => { setIsOpen(false); instance.logoutRedirect(); };
   const handleSwitchAccount = () => {
     setIsOpen(false);
     instance.setActiveAccount(null);
-    instance.loginRedirect({
-      scopes: ["user.read"],
-      prompt: "select_account",
-    });
+    instance.loginRedirect({ scopes: ["user.read"], prompt: "select_account" });
   };
 
   return (
@@ -173,34 +117,25 @@ function UserProfileDropdown() {
           <CheckCircle2 className="w-3 h-3" />
           Berhasil login akun microsoft
         </div>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
+        <button onClick={() => setIsOpen(!isOpen)}
           className="w-9 h-9 rounded-full bg-[#4648d4] text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer border-2 border-white hover:bg-[#3638b0] transition-colors"
-          title={userName}
-        >
+          title={userName}>
           {getInitials(userName)}
         </button>
       </div>
-
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-fadeIn">
           <div className="px-4 py-3 border-b border-slate-100">
             <p className="text-sm font-bold text-slate-900">{userName}</p>
             <p className="text-xs text-slate-500 truncate">{accounts[0]?.username || ""}</p>
           </div>
-          <button
-            onClick={handleSwitchAccount}
-            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-          >
-            <RefreshCcw className="w-4 h-4 text-slate-400" />
-            Ganti Akun
+          <button onClick={handleSwitchAccount}
+            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+            <RefreshCcw className="w-4 h-4 text-slate-400" /> Ganti Akun
           </button>
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 rotate-180 text-red-400" />
-            Logout
+          <button onClick={handleLogout}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
+            <ArrowLeft className="w-4 h-4 rotate-180 text-red-400" /> Logout
           </button>
         </div>
       )}
@@ -253,20 +188,12 @@ function getPhaseIcon(phase) {
 }
 
 function getAgentCardStyle(status) {
-  const styles = {
-    idle: "border-slate-200 bg-slate-50",
-    active: "border-amber-300 bg-amber-50 shadow-md shadow-amber-100",
-    completed: "border-emerald-200 bg-emerald-50",
-  };
+  const styles = { idle: "border-slate-200 bg-slate-50", active: "border-amber-300 bg-amber-50 shadow-md shadow-amber-100", completed: "border-emerald-200 bg-emerald-50" };
   return styles[status] || styles.idle;
 }
 
 function getStatusDot(status) {
-  const dots = {
-    idle: "bg-slate-300",
-    active: "bg-amber-500 animate-pulse",
-    completed: "bg-emerald-500",
-  };
+  const dots = { idle: "bg-slate-300", active: "bg-amber-500 animate-pulse", completed: "bg-emerald-500" };
   return dots[status] || dots.idle;
 }
 
@@ -312,11 +239,7 @@ const AGENT_STYLE_POOL = [
 ];
 
 const STATIC_PARTICLES = Array.from({ length: 20 }, (_, i) => ({
-  id: i,
-  x: (i * 47) % 800,
-  y: (i * 31) % 600,
-  size: (i % 3) + 1.5,
-  opacity: 0.12 + (i % 4) * 0.05,
+  id: i, x: (i * 47) % 800, y: (i * 31) % 600, size: (i % 3) + 1.5, opacity: 0.12 + (i % 4) * 0.05,
 }));
 
 // ==========================================
@@ -420,10 +343,7 @@ function NetworkGraph({ zoomLevel, activeAgent, hoveredNode, setHoveredNode, pro
 // ==========================================
 function SimulationView({ simulationData, simulationResults, onRunSimulation, onConfirmSimulation, onSkipSimulation, onBackToDiscussion, wsConnected }) {
   const createInitialAdjustedValues = (variables = []) => {
-    return variables.reduce((acc, variable) => {
-      acc[variable.name] = variable.current_value;
-      return acc;
-    }, {});
+    return variables.reduce((acc, variable) => { acc[variable.name] = variable.current_value; return acc; }, {});
   };
 
   const [adjustedValues, setAdjustedValues] = useState(() => createInitialAdjustedValues(simulationData?.variables));
@@ -434,15 +354,11 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
 
   useEffect(() => {
     if (!simulationData?.variables) return;
-    const timer = setTimeout(() => {
-      setAdjustedValues(createInitialAdjustedValues(simulationData.variables));
-    }, 0);
+    const timer = setTimeout(() => { setAdjustedValues(createInitialAdjustedValues(simulationData.variables)); }, 0);
     return () => clearTimeout(timer);
   }, [simulationData?.variables]);
 
-  const handleSliderChange = (name, value) => {
-    setAdjustedValues((prev) => ({ ...prev, [name]: parseFloat(value) }));
-  };
+  const handleSliderChange = (name, value) => { setAdjustedValues((prev) => ({ ...prev, [name]: parseFloat(value) })); };
 
   const handleReset = () => {
     if (!simulationData?.variables) return;
@@ -457,19 +373,14 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
     let isChanged = false;
     simulationData.variables.forEach((v) => {
       const current = adjustedValues[v.name] ?? v.current_value;
-      if (Math.abs(current - v.current_value) > 0.0001) {
-        changed[v.name] = current;
-        isChanged = true;
-      }
+      if (Math.abs(current - v.current_value) > 0.0001) { changed[v.name] = current; isChanged = true; }
     });
-
     if (!isChanged) {
       setToast({ type: "info", message: "No parameters adjusted. Running baseline simulation..." });
       simulationData.variables.forEach((v) => { changed[v.name] = adjustedValues[v.name] ?? v.current_value; });
     } else {
       setToast({ type: "success", message: "Running simulation with adjusted parameters..." });
     }
-
     setTimeout(() => setToast(null), 3000);
     setIsRunning(true);
     onRunSimulation(changed);
@@ -520,7 +431,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
       return;
     }
     if (isConfirming) return;
-
     setIsConfirming(true);
     const scenarioParams = simulationResults.scenario_params || {};
     const scenarioComparison = simulationResults.scenario_comparison || {};
@@ -530,7 +440,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
       confirmed_at: new Date().toISOString(),
       has_adjustments: Object.keys(scenarioComparison).length > 0,
     };
-
     try {
       onConfirmSimulation(lightweightSummary);
       setToast({ type: "success", message: "Proceeding to Action Plan..." });
@@ -550,7 +459,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
           {toast.message}
         </div>
       )}
-
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={onBackToDiscussion} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors">
@@ -575,7 +483,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
           <div className="px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-full text-xs font-bold border border-cyan-200">Phase 3: Simulation</div>
         </div>
       </div>
-
       <div className="flex-1 flex overflow-hidden">
         <div className="w-[420px] flex flex-col border-r border-slate-200 bg-white overflow-y-auto">
           <div className="p-6 border-b border-slate-100">
@@ -605,7 +512,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
               </div>
             </div>
           </div>
-
           <div className="p-6 flex-1">
             <div className="flex items-center justify-between mb-5">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
@@ -615,7 +521,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                 <RefreshCcw className="w-3 h-3" /> Reset
               </button>
             </div>
-
             {hasVariables ? (
               <div className="space-y-5">
                 {simulationData.variables.map((v, idx) => (
@@ -653,7 +558,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                 <p className="text-xs text-slate-500">Variables could not be extracted. You can still proceed to the action plan.</p>
               </div>
             )}
-
             <div className="mt-6 space-y-3">
               <button onClick={handleRun} disabled={isRunning || !wsConnected}
                 className="w-full py-3 bg-[#4648d4] hover:bg-[#3638b0] disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
@@ -666,7 +570,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
               </button>
             </div>
           </div>
-
           <div className="p-6 border-t border-slate-100 bg-slate-50/50">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
               <Brain className="w-4 h-4 text-[#4648d4]" /> Expert Analysis
@@ -693,7 +596,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
             </div>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           {!simulationResults ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
@@ -729,7 +631,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                   </div>
                 </div>
               )}
-
               <div>
                 <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-[#4648d4]" /> Key Performance Indicators
@@ -759,7 +660,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                   )}
                 </div>
               </div>
-
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-[#4648d4]" /> Base Calculations
@@ -786,7 +686,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                   )}
                 </div>
               </div>
-
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Scale className="w-4 h-4 text-[#4648d4]" /> Scenario Comparison
@@ -837,7 +736,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                   )}
                 </div>
               </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                   <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
@@ -892,7 +790,6 @@ function SimulationView({ simulationData, simulationResults, onRunSimulation, on
                   </div>
                 </div>
               </div>
-
               <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
@@ -949,6 +846,8 @@ export default function App() {
   const [selectedAgentText, setSelectedAgentText] = useState(null);
   const [analysisMetrics, setAnalysisMetrics] = useState(null);
   const [agentRoles, setAgentRoles] = useState([]);
+  // FIX: State untuk memastikan tombol tidak disabled
+  const [filesReady, setFilesReady] = useState(false);
 
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
@@ -994,7 +893,7 @@ export default function App() {
   }, [messages]);
 
   // ==========================================
-  // FIX #3: Handle WS Message — Robust file handling + slides_preview
+  // FIX: Handle WS Message — Robust file handling + slides_preview
   // ==========================================
   const handleWsMessage = useCallback((event) => {
     try {
@@ -1018,9 +917,7 @@ export default function App() {
         setCurrentLog("System assigning optimized multi-agent roles...");
         setDiscussionPhase("roles");
       } else if (data.step === "roles_ready") {
-        if (data.roles && Array.isArray(data.roles)) {
-          setAgentRoles(data.roles);
-        }
+        if (data.roles && Array.isArray(data.roles)) setAgentRoles(data.roles);
         setCurrentLog(`Roles assigned: ${data.roles?.join(", ")}`);
       } else if (data.step === "discussing") {
         const agentName = typeof data.agent === "string" ? data.agent : "System Agent";
@@ -1050,28 +947,29 @@ export default function App() {
         setSimulationResults(data.scenario_results);
         setCurrentLog("Simulation completed. Scenario analysis ready.");
       } else if (data.step === "final") {
-        // FIX: Pastikan files selalu memiliki struktur valid
+        // FIX: Pastikan files selalu memiliki struktur valid dengan fallback path
         const files = data.files || {};
         const safeFiles = {
-          pdf: files.pdf || null,
-          ppt: files.ppt || null,
+          pdf: files.pdf || "/static/report.pdf",
+          ppt: files.ppt || "/static/report.pptx",
         };
         setResult({ content: data.content || "", files: safeFiles });
+        setFilesReady(true);  // <-- FIX: Selalu aktifkan tombol setelah final
 
         // FIX: Gunakan slides_preview dari backend jika tersedia (prioritas utama)
         if (data.slides_preview && Array.isArray(data.slides_preview) && data.slides_preview.length > 0) {
           setPptSlides(data.slides_preview);
         } else {
           // Fallback: ekstrak slides dari content jika backend tidak kirim slides_preview
-          const lines = (data.content || "").split('\n');
+          const lines = (data.content || "").split("\n");
           const fallbackSlides = [];
           let currentSlide = null;
           for (const line of lines) {
-            if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
+            if (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("### ")) {
               if (currentSlide) fallbackSlides.push(currentSlide);
-              currentSlide = { title: line.replace(/#+ /, ''), bullets: [] };
-            } else if (currentSlide && line.trim().startsWith('- ')) {
-              currentSlide.bullets.push(line.replace('- ', ''));
+              currentSlide = { title: line.replace(/#+ /, ""), bullets: [] };
+            } else if (currentSlide && line.trim().startsWith("- ")) {
+              currentSlide.bullets.push(line.replace("- ", ""));
             }
           }
           if (currentSlide) fallbackSlides.push(currentSlide);
@@ -1093,29 +991,21 @@ export default function App() {
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
-      return;
-    }
+    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) return;
     try {
       const wsInstance = new WebSocket(WS_URL);
       wsInstance.onmessage = handleWsMessage;
       wsInstance.onopen = () => {
         setWsConnected(true);
         setCurrentLog("WebSocket connected. Engine ready.");
-        if (reconnectTimer.current) {
-          clearTimeout(reconnectTimer.current);
-          reconnectTimer.current = null;
-        }
+        if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
       };
       wsInstance.onclose = () => {
         setWsConnected(false);
         setCurrentLog("WebSocket disconnected. Reconnecting in 3s...");
         reconnectTimer.current = setTimeout(connectWebSocket, 3000);
       };
-      wsInstance.onerror = (err) => {
-        console.error("WebSocket error:", err);
-        setCurrentLog("WebSocket connection error.");
-      };
+      wsInstance.onerror = (err) => { console.error("WebSocket error:", err); setCurrentLog("WebSocket connection error."); };
       ws.current = wsInstance;
     } catch (err) {
       console.error("Failed to create WebSocket:", err);
@@ -1128,7 +1018,6 @@ export default function App() {
     link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap";
     link.rel = "stylesheet";
     document.head.appendChild(link);
-
     const handleMouseMove = (e) => {
       const pattern = document.querySelector(".hero-pattern");
       if (pattern) {
@@ -1139,7 +1028,6 @@ export default function App() {
     };
     window.addEventListener("mousemove", handleMouseMove);
     connectWebSocket();
-
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
@@ -1185,16 +1073,8 @@ export default function App() {
     }
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) processFile(file);
-  };
-
-  const removeFile = () => {
-    setSelectedFile(null);
-    setExtractedDocText("");
-    setFileUploadError("");
-  };
+  const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) processFile(file); };
+  const removeFile = () => { setSelectedFile(null); setExtractedDocText(""); setFileUploadError(""); };
 
   const handlePaste = (e) => {
     const items = e.clipboardData?.items;
@@ -1233,6 +1113,7 @@ export default function App() {
     setActiveAgent(null);
     setSimulationData(null);
     setSimulationResults(null);
+    setFilesReady(false);  // Reset files ready state
 
     let pText = "";
     if (extractedDocText) {
@@ -1243,11 +1124,8 @@ export default function App() {
       pText += "\n═══════════════════════════════════════\n\n";
     }
     if (input.trim()) {
-      if (extractedDocText) {
-        pText += `[CATATAN TAMBAHAN USER]: ${input.trim()}`;
-      } else {
-        pText += input.trim();
-      }
+      if (extractedDocText) pText += `[CATATAN TAMBAHAN USER]: ${input.trim()}`;
+      else pText += input.trim();
     }
     setProblemText(pText.substring(0, 100) + (pText.length > 100 ? "..." : ""));
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -1311,6 +1189,10 @@ export default function App() {
       .replace(/(\d{1,3}(?:\.\d{3})*(?:,\d+)?\s*(?:pieces|orang|jam|hari|bulan|%))/gi, '<span class="num-highlight">$1</span>')
       .replace(/(\d+\s*[+\-×÷/]\s*\d+\s*=\s*[\d.,]+)/g, '<span class="formula-highlight">$1</span>');
   };
+
+  // FIX: Compute file URLs with fallback — tombol tidak akan pernah disabled
+  const pdfUrl = result.files?.pdf ? `${API_BASE}${result.files.pdf}` : `${API_BASE}/static/report.pdf`;
+  const pptUrl = result.files?.ppt ? `${API_BASE}${result.files.ppt}` : `${API_BASE}/static/report.pptx`;
 
   if (accounts.length === 0) {
     return (
@@ -1529,19 +1411,16 @@ export default function App() {
                     <p className="text-sm text-slate-500 mt-1">Word, Excel, PDF, or Image</p>
                   </div>
                 )}
-
                 <textarea value={input} onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); startProcess(); } }}
                   onPaste={handlePaste} maxLength={MAX_INPUT_LENGTH}
                   className="w-full border-none focus:ring-0 text-base bg-transparent resize-none p-2 placeholder:text-gray-400 outline-none h-32"
                   placeholder="Describe your operational problem... (You can also Ctrl+V to paste an image here)" />
-
                 <div className="flex justify-end px-2">
                   <span className={`text-[11px] font-medium ${input.length >= MAX_INPUT_LENGTH ? "text-red-500" : "text-slate-400"}`}>
                     {input.length}/{MAX_INPUT_LENGTH}
                   </span>
                 </div>
-
                 {selectedFile && (
                   <div className="mx-2 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-fadeIn">
                     <div className="flex items-center justify-between mb-2">
@@ -1589,7 +1468,6 @@ export default function App() {
                     )}
                   </div>
                 )}
-
                 <div className="flex justify-between items-center px-2">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <label className={`flex items-center gap-2 px-4 py-2.5 ${isProcessingFile ? "bg-slate-100 text-slate-400" : "bg-[#f3f4f5] hover:bg-gray-200 text-[#464554]"} rounded-xl transition-all cursor-pointer text-xs font-bold border border-gray-200 shadow-sm active:scale-95 shrink-0 ${isProcessingFile ? "pointer-events-none" : ""}`}>
@@ -1701,7 +1579,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
             {isWaitingUser && (
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md z-40 flex items-center justify-center p-4 md:p-8">
                 <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-8 flex flex-col max-h-[85vh]">
@@ -1777,17 +1654,16 @@ export default function App() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
+                    {/* FIX: Tombol selalu aktif, tidak pernah disabled */}
                     <button
-                      onClick={() => setPdfPreviewUrl(`${API_BASE}${result.files?.pdf || '/static/report.pdf'}`)}
-                      disabled={!result.files?.pdf}
-                      className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setPdfPreviewUrl(pdfUrl)}
+                      className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors"
                     >
                       <Eye size={14} /> Preview
                     </button>
                     <button
-                      onClick={() => forceDownload(`${API_BASE}${result.files?.pdf || '/static/report.pdf'}`, "Analysis_Report.pdf")}
-                      disabled={!result.files?.pdf}
-                      className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files?.pdf ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
+                      onClick={() => forceDownload(pdfUrl, "Analysis_Report.pdf")}
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center bg-[#4648d4] text-white hover:bg-[#3638b0] transition-colors"
                     >
                       <Download size={14} /> Download
                     </button>
@@ -1806,17 +1682,16 @@ export default function App() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
+                    {/* FIX: Tombol selalu aktif, tidak pernah disabled */}
                     <button
                       onClick={() => { setCurrentSlideIndex(0); setIsPptPreviewOpen(true); }}
-                      disabled={!result.files?.ppt}
-                      className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors"
                     >
                       <Eye size={14} /> Preview
                     </button>
                     <button
-                      onClick={() => forceDownload(`${API_BASE}${result.files?.ppt || '/static/report.pptx'}`, "Executive_Slides.pptx")}
-                      disabled={!result.files?.ppt}
-                      className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center ${result.files?.ppt ? "bg-[#4648d4] text-white hover:bg-[#3638b0]" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
+                      onClick={() => forceDownload(pptUrl, "Executive_Slides.pptx")}
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-center bg-[#4648d4] text-white hover:bg-[#3638b0] transition-colors"
                     >
                       <Download size={14} /> Download
                     </button>
