@@ -508,7 +508,8 @@ function SimulationView({
     createInitialAdjustedValues(simulationData?.variables),
   );
   const [isRunning, setIsRunning] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false); // FIX: Anti double-click
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false); // FIX: State baru untuk loading tombol Skip
   const [toast, setToast] = useState(null);
   const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
@@ -626,34 +627,46 @@ function SimulationView({
     simulationData?.variables && simulationData.variables.length > 0;
 
   // ==========================================
-  // FIX: handleConfirm — Robust, Anti-Double-Click, Validasi Prop
+  // FIX: handleSkip — Animasi muter terus + Notifikasi
+  // ==========================================
+  const handleSkip = useCallback(() => {
+    if (isSkipping || isConfirming) return;
+    
+    setIsSkipping(true);
+    setToast({ type: "success", message: "Proceeding to Action Plan..." });
+    
+    try {
+      onSkipSimulation();
+      // Sengaja TIDAK MENGUBAH setIsSkipping(false) di sini agar loading terus berputar
+    } catch (err) {
+      console.error("[Skip] Error:", err);
+      setToast({ type: "info", message: "Failed to proceed. Please try again." });
+      setIsSkipping(false); // Hanya berhenti jika ada error
+    } finally {
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [isSkipping, isConfirming, onSkipSimulation]);
+
+  // ==========================================
+  // FIX: handleConfirm — Animasi muter terus + Notifikasi
   // ==========================================
   const handleConfirm = useCallback(() => {
-    // Validasi 1: Pastikan simulationResults ada
     if (!simulationResults) {
-      console.warn("[Confirm] simulationResults is null/undefined");
       setToast({ type: "info", message: "Simulation results not available yet." });
       setTimeout(() => setToast(null), 3000);
       return;
     }
 
-    // Validasi 2: Pastikan onConfirmSimulation prop adalah function
     if (typeof onConfirmSimulation !== "function") {
-      console.error("[Confirm] onConfirmSimulation prop is not a function!", onConfirmSimulation);
       setToast({ type: "info", message: "System error: confirm handler not connected." });
       setTimeout(() => setToast(null), 3000);
       return;
     }
 
-    // Validasi 3: Cegah double-click
-    if (isConfirming) {
-      console.log("[Confirm] Already confirming, ignoring double-click.");
-      return;
-    }
+    if (isConfirming || isSkipping) return;
 
     setIsConfirming(true);
 
-    // Buat payload ringan dengan fallback yang aman
     const scenarioParams = simulationResults.scenario_params || {};
     const scenarioComparison = simulationResults.scenario_comparison || {};
 
@@ -664,19 +677,18 @@ function SimulationView({
       has_adjustments: Object.keys(scenarioComparison).length > 0,
     };
 
-    console.log("[Confirm] Sending lightweight payload:", lightweightSummary);
-
     try {
       onConfirmSimulation(lightweightSummary);
       setToast({ type: "success", message: "Proceeding to Action Plan..." });
+      // Sengaja TIDAK MENGUBAH setIsConfirming(false) di sini agar loading terus berputar
     } catch (err) {
       console.error("[Confirm] Error calling onConfirmSimulation:", err);
       setToast({ type: "info", message: "Failed to proceed. Please try again." });
+      setIsConfirming(false); // Hanya berhenti jika ada error
     } finally {
-      setTimeout(() => setIsConfirming(false), 2000);
       setTimeout(() => setToast(null), 3000);
     }
-  }, [simulationResults, onConfirmSimulation, isConfirming]);
+  }, [simulationResults, onConfirmSimulation, isConfirming, isSkipping]);
 
   return (
     <div className="h-[calc(100vh-72px)] flex flex-col bg-slate-50 overflow-hidden relative">
@@ -697,7 +709,8 @@ function SimulationView({
         <div className="flex items-center gap-4">
           <button
             onClick={onBackToDiscussion}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors"
+            disabled={isSkipping || isConfirming}
+            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] disabled:opacity-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Analysis
           </button>
@@ -788,7 +801,8 @@ function SimulationView({
               </h4>
               <button
                 onClick={handleReset}
-                className="text-xs text-slate-500 hover:text-[#4648d4] font-medium flex items-center gap-1 transition-colors"
+                disabled={isSkipping || isConfirming}
+                className="text-xs text-slate-500 hover:text-[#4648d4] disabled:opacity-50 font-medium flex items-center gap-1 transition-colors"
               >
                 <RefreshCcw className="w-3 h-3" /> Reset
               </button>
@@ -833,7 +847,8 @@ function SimulationView({
                         onChange={(e) =>
                           handleSliderChange(v.name, e.target.value)
                         }
-                        className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#4648d4]"
+                        disabled={isSkipping || isConfirming}
+                        className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#4648d4] disabled:opacity-50"
                       />
                       <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-medium">
                         <span>{formatNumber(v.min)}</span>
@@ -860,7 +875,7 @@ function SimulationView({
             <div className="mt-6 space-y-3">
               <button
                 onClick={handleRun}
-                disabled={isRunning || !wsConnected}
+                disabled={isRunning || !wsConnected || isConfirming || isSkipping}
                 className="w-full py-3 bg-[#4648d4] hover:bg-[#3638b0] disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 {isRunning ? (
@@ -870,12 +885,19 @@ function SimulationView({
                 )}
                 {isRunning ? "Running Simulation..." : "Run Simulation"}
               </button>
+              
+              {/* TOMBOL SKIP DIPERBARUI DI SINI */}
               <button
-                onClick={onSkipSimulation}
-                disabled={!wsConnected}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                onClick={handleSkip}
+                disabled={!wsConnected || isConfirming || isSkipping}
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 disabled:text-slate-400 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                <FastForward className="w-4 h-4" /> Skip to Action Plan
+                {isSkipping ? (
+                  <RefreshCcw className="w-4 h-4 animate-spin text-slate-500" />
+                ) : (
+                  <FastForward className="w-4 h-4" />
+                )}
+                {isSkipping ? "Processing..." : "Skip to Action Plan"}
               </button>
             </div>
           </div>
@@ -1286,7 +1308,7 @@ function SimulationView({
               </div>
 
               {/* ========================================== */}
-              {/* FIX: Tombol Confirm & Proceed — Robust & Anti-Double-Click */}
+              {/* TOMBOL CONFIRM DIPERBARUI DI SINI          */}
               {/* ========================================== */}
               <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1301,8 +1323,8 @@ function SimulationView({
                   </div>
                   <button
                     onClick={handleConfirm}
-                    disabled={!wsConnected || isConfirming}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
+                    disabled={!wsConnected || isConfirming || isSkipping}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-50 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
                   >
                     {isConfirming ? (
                       <RefreshCcw className="w-4 h-4 animate-spin" />
