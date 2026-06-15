@@ -417,227 +417,64 @@ function NetworkGraph({
     return () => window.removeEventListener("resize", updateDim);
   }, []);
 
-  const w = dimensions.width;
-  const h = dimensions.height;
-  const cx = w / 2;
-  const cy = h / 2;
+  const cx = dimensions.width / 2;
+  const cy = dimensions.height / 2;
   const corePos = { x: cx, y: cy };
 
   const agentPositions = agents.map((agent, i) => {
-    const angle =
-      agents.length === 1
-        ? -Math.PI / 2
-        : (i / agents.length) * Math.PI * 2 - Math.PI / 2;
-    // Radius diperbesar agar node tidak berdempetan
-    const radius = Math.min(w, h) * 0.42; 
-    return {
-      ...agent,
-      x: cx + Math.cos(angle) * radius,
-      y: cy + Math.sin(angle) * radius,
-    };
+    const angle = agents.length === 1 ? -Math.PI / 2 : (i / agents.length) * Math.PI * 2 - Math.PI / 2;
+    const radius = Math.min(dimensions.width, dimensions.height) * 0.4; 
+    return { ...agent, x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
   });
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 overflow-hidden bg-slate-50"
-    >
-      <svg
-        width={w}
-        height={h}
-        className="absolute inset-0"
-        style={{
-          transform: `scale(${zoomLevel})`,
-          transformOrigin: "center center",
-          transition: "transform 0.3s ease",
-        }}
-      >
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden bg-slate-50">
+      <svg width={dimensions.width} height={dimensions.height} className="absolute inset-0" style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center", transition: "transform 0.3s ease" }}>
         <defs>
           {agents.map((agent) => (
-            <filter
-              key={`glow-${agent.id}`}
-              id={`glow-${agent.id}`}
-              x="-50%"
-              y="-50%"
-              width="200%"
-              height="200%"
-            >
-              <feGaussianBlur stdDeviation="6" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+            <filter key={`glow-${agent.id}`} id={`glow-${agent.id}`} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="6" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           ))}
           <linearGradient id="coreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0891b2" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3" />
+            <stop offset="0%" stopColor="#0891b2" stopOpacity="0.15" /><stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3" />
           </linearGradient>
         </defs>
-        {STATIC_PARTICLES.map((p) => (
-          <circle
-            key={p.id}
-            cx={p.x}
-            cy={p.y}
-            r={p.size}
-            fill="#94a3b8"
-            opacity={p.opacity}
-          />
-        ))}
+        {STATIC_PARTICLES.map((p) => <circle key={p.id} cx={p.x} cy={p.y} r={p.size} fill="#94a3b8" opacity={p.opacity} />)}
         {agentPositions.map((agent, i) => {
-          const nextAgent =
-            agents.length > 1
-              ? agentPositions[(i + 1) % agentPositions.length]
-              : null;
+          const nextAgent = agents.length > 1 ? agentPositions[(i + 1) % agentPositions.length] : null;
           return (
             <g key={`lines-${agent.id}`}>
-              <line
-                x1={agent.x}
-                y1={agent.y}
-                x2={corePos.x}
-                y2={corePos.y}
-                stroke={agent.color}
-                strokeWidth="1.5"
-                strokeDasharray="6 3"
-                opacity="0.4"
-                style={{ transition: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)" }}
-              />
-              <circle r="3" fill={agent.color} opacity="0.7">
-                <animateMotion
-                  dur="2.5s"
-                  repeatCount="indefinite"
-                  path={`M${agent.x},${agent.y} L${corePos.x},${corePos.y}`}
-                />
-              </circle>
-              {nextAgent && (
-                <line
-                  x1={agent.x}
-                  y1={agent.y}
-                  x2={nextAgent.x}
-                  y2={nextAgent.y}
-                  stroke="#cbd5e1"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                  opacity="0.3"
-                  style={{
-                    transition: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-                  }}
-                />
-              )}
+              <line x1={agent.x} y1={agent.y} x2={corePos.x} y2={corePos.y} stroke={agent.color} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.4" />
+              <circle r="3" fill={agent.color} opacity="0.7"><animateMotion dur="2.5s" repeatCount="indefinite" path={`M${agent.x},${agent.y} L${corePos.x},${corePos.y}`} /></circle>
+              {nextAgent && <line x1={agent.x} y1={agent.y} x2={nextAgent.x} y2={nextAgent.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4" opacity="0.3" />}
             </g>
           );
         })}
-        <g
-          transform={`translate(${corePos.x}, ${corePos.y})`}
-          style={{ transition: "all 0.3s ease" }}
-        >
-          <rect
-            x="-95"
-            y="-55"
-            width="190"
-            height="110"
-            rx="16"
-            fill="url(#coreGradient)"
-            stroke="#06b6d4"
-            strokeWidth="2"
-          />
-          <text
-            x="0"
-            y="-30"
-            textAnchor="middle"
-            fill="#0891b2"
-            fontSize="10"
-            fontWeight="800"
-            fontFamily="monospace"
-            letterSpacing="1.5"
-          >
-            CASE DATA ROOT
-          </text>
-          <text
-            x="0"
-            y="5"
-            textAnchor="middle"
-            fill="#0f172a"
-            fontSize="12"
-            fontWeight="700"
-            className="select-none"
-          >
-            {problemText.length > 25
-              ? `${problemText.substring(0, 25)}...`
-              : problemText || "Awaiting Data..."}
+        <g transform={`translate(${corePos.x}, ${corePos.y})`}>
+          <rect x="-95" y="-55" width="190" height="110" rx="16" fill="url(#coreGradient)" stroke="#06b6d4" strokeWidth="2" />
+          <text x="0" y="-30" textAnchor="middle" fill="#0891b2" fontSize="10" fontWeight="800" fontFamily="monospace" letterSpacing="1.5">CASE DATA ROOT</text>
+          <text x="0" y="5" textAnchor="middle" fill="#0f172a" fontSize="12" fontWeight="700" className="select-none">
+            {problemText.length > 25 ? `${problemText.substring(0, 25)}...` : problemText || "Awaiting Data..."}
           </text>
         </g>
         {agentPositions.map((agent) => {
           const isHovered = hoveredNode === agent.id;
-          const isActive = activeAgent === agent.name;
-          // Kotak dibuat sedikit lebih lebar agar teks panjang aman
-          const nodeWidth = isHovered ? 195 : 180;
-          const nodeHeight = isHovered ? 72 : 64;
+          const nodeWidth = isHovered ? 200 : 180;
+          const nodeHeight = isHovered ? 70 : 64;
           const IconComp = agent.lucideIcon;
           return (
-            <g
-              key={agent.id}
-              style={{
-                transform: `translate(${agent.x}px, ${agent.y}px)`,
-                cursor: "pointer",
-                transition: "transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-              onMouseEnter={() => setHoveredNode(agent.id)}
-              onMouseLeave={() => setHoveredNode(null)}
-              onClick={() => onNodeClick && onNodeClick(agent.name)}
-            >
-              <rect
-                x={-nodeWidth / 2}
-                y={-nodeHeight / 2}
-                width={nodeWidth}
-                height={nodeHeight}
-                rx="12"
-                fill="#ffffff"
-                stroke={agent.color}
-                strokeWidth={isActive ? 3 : 1.5}
-                filter={`url(#glow-${agent.id})`}
-                style={{ transition: "all 0.2s ease" }}
-              />
-              <circle
-                cx={-nodeWidth / 2 + 22}
-                cy="0"
-                r="14"
-                fill={agent.bgColor}
-                stroke={agent.color}
-                strokeWidth="1"
-              />
-              <foreignObject
-                x={-nodeWidth / 2 + 12}
-                y={-10}
-                width="20"
-                height="20"
-              >
-                <div
-                  style={{
-                    color: agent.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "100%",
-                  }}
-                >
-                  <IconComp size={14} />
-                </div>
+            <g key={agent.id} style={{ transform: `translate(${agent.x}px, ${agent.y}px)`, cursor: "pointer", transition: "transform 0.4s ease" }}
+               onMouseEnter={() => setHoveredNode(agent.id)} onMouseLeave={() => setHoveredNode(null)} onClick={() => onNodeClick && onNodeClick(agent.name)}>
+              <rect x={-nodeWidth / 2} y={-nodeHeight / 2} width={nodeWidth} height={nodeHeight} rx="12" fill="#ffffff" stroke={agent.color} strokeWidth={activeAgent === agent.name ? 3 : 1.5} filter={`url(#glow-${agent.id})`} />
+              <circle cx={-nodeWidth / 2 + 22} cy="0" r="14" fill={agent.bgColor} stroke={agent.color} strokeWidth="1" />
+              <foreignObject x={-nodeWidth / 2 + 12} y={-10} width="20" height="20">
+                <div style={{ color: agent.color, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><IconComp size={14} /></div>
               </foreignObject>
-              {/* Menggunakan foreignObject agar teks otomatis memotong rapi jika kepanjangan */}
-              <foreignObject
-                x={-nodeWidth / 2 + 44}
-                y={-nodeHeight / 2 + 8}
-                width={nodeWidth - 52}
-                height={nodeHeight - 16}
-              >
-                <div className="flex flex-col justify-center h-full w-full pointer-events-none">
-                  <p className="text-[10px] font-extrabold text-slate-900 leading-snug line-clamp-2">
-                    {agent.name}
-                  </p>
-                  <p className="text-[9px] font-mono text-slate-500 mt-0.5 truncate">
-                    {agent.subtitle}
-                  </p>
+              <foreignObject x={-nodeWidth / 2 + 45} y={-nodeHeight / 2 + 10} width={nodeWidth - 55} height={nodeHeight - 20}>
+                <div className="flex flex-col justify-center h-full w-full pointer-events-none overflow-hidden">
+                  <p className="text-[10px] font-extrabold text-slate-900 leading-tight line-clamp-2 uppercase">{agent.name}</p>
+                  <p className="text-[9px] font-mono text-slate-500 mt-0.5 truncate uppercase">{agent.subtitle}</p>
                 </div>
               </foreignObject>
             </g>
@@ -667,21 +504,16 @@ function SimulationView({
     }, {});
   };
 
-  const [adjustedValues, setAdjustedValues] = useState(() =>
-    createInitialAdjustedValues(simulationData?.variables),
-  );
+  const [adjustedValues, setAdjustedValues] = useState(() => createInitialAdjustedValues(simulationData?.variables));
   const [isRunning, setIsRunning] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false); 
-  const [isSkipping, setIsSkipping] = useState(false); // Menambahkan state loading untuk SKIP
+  const [isSkipping, setIsSkipping] = useState(false); 
   const [toast, setToast] = useState(null);
   const [isProblemExpanded, setIsProblemExpanded] = useState(false);
 
   useEffect(() => {
     if (!simulationData?.variables) return;
-    const timer = setTimeout(() => {
-      setAdjustedValues(createInitialAdjustedValues(simulationData.variables));
-    }, 0);
-    return () => clearTimeout(timer);
+    setAdjustedValues(createInitialAdjustedValues(simulationData.variables));
   }, [simulationData?.variables]);
 
   const handleSliderChange = (name, value) => {
@@ -689,50 +521,20 @@ function SimulationView({
   };
 
   const handleReset = () => {
-    if (!simulationData?.variables) return;
     const initial = {};
-    simulationData.variables.forEach((v) => {
-      initial[v.name] = v.current_value;
-    });
+    simulationData.variables.forEach((v) => { initial[v.name] = v.current_value; });
     setAdjustedValues(initial);
   };
 
   const handleRun = () => {
-    const changed = {};
-    if (!simulationData?.variables) return;
-    let isChanged = false;
-    simulationData.variables.forEach((v) => {
-      const current = adjustedValues[v.name] ?? v.current_value;
-      if (Math.abs(current - v.current_value) > 0.0001) {
-        changed[v.name] = current;
-        isChanged = true;
-      }
-    });
-
-    if (!isChanged) {
-      setToast({
-        type: "info",
-        message: "No parameters adjusted. Running baseline simulation...",
-      });
-      simulationData.variables.forEach((v) => {
-        changed[v.name] = adjustedValues[v.name] ?? v.current_value;
-      });
-    } else {
-      setToast({
-        type: "success",
-        message: "Running simulation with adjusted parameters...",
-      });
-    }
-
-    setTimeout(() => setToast(null), 3000);
     setIsRunning(true);
+    const changed = {};
+    simulationData.variables.forEach((v) => { changed[v.name] = adjustedValues[v.name] ?? v.current_value; });
     onRunSimulation(changed);
   };
 
   useEffect(() => {
-    if (!simulationResults) return;
-    const timeoutId = setTimeout(() => setIsRunning(false), 0);
-    return () => clearTimeout(timeoutId);
+    if (simulationResults) setIsRunning(false);
   }, [simulationResults]);
 
   const formatNumber = (num) => {
@@ -740,405 +542,182 @@ function SimulationView({
     if (Math.abs(num) >= 1e9) return (num / 1e9).toFixed(2) + "B";
     if (Math.abs(num) >= 1e6) return (num / 1e6).toFixed(2) + "M";
     if (Math.abs(num) >= 1e3) return (num / 1e3).toFixed(1) + "K";
-    if (Number.isInteger(num)) return num.toLocaleString("id-ID");
-    return num.toLocaleString("id-ID", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
+    return num.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
-  const formatKpiName = (key) =>
-    key
-      .replace(/_/g, " ")
-      .replace(/^-/, "")
-      .trim()
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+  const formatKpiName = (key) => key.replace(/_/g, " ").replace(/^-/, "").trim().replace(/\b\w/g, (l) => l.toUpperCase());
 
   const getRiskStyles = (level) => {
     switch (level) {
-      case "high":
-        return {
-          bg: "bg-red-50 border-red-200",
-          text: "text-red-700",
-          icon: "text-red-500",
-          badge: "bg-red-100 text-red-700",
-        };
-      case "elevated":
-        return {
-          bg: "bg-amber-50 border-amber-200",
-          text: "text-amber-700",
-          icon: "text-amber-500",
-          badge: "bg-amber-100 text-amber-700",
-        };
-      default:
-        return {
-          bg: "bg-emerald-50 border-emerald-200",
-          text: "text-emerald-700",
-          icon: "text-emerald-500",
-          badge: "bg-emerald-100 text-emerald-700",
-        };
+      case "high": return { bg: "bg-red-50 border-red-200", text: "text-red-700", icon: "text-red-500", badge: "bg-red-100 text-red-700" };
+      case "elevated": return { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", icon: "text-amber-500", badge: "bg-amber-100 text-amber-700" };
+      default: return { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", icon: "text-emerald-500", badge: "bg-emerald-100 text-emerald-700" };
     }
   };
 
   const maxComparisonValue = (key) => {
-    if (!simulationResults?.scenario_comparison?.[key]) return 1;
-    const { original, adjusted } = simulationResults.scenario_comparison[key];
-    return Math.max(Math.abs(original || 0), Math.abs(adjusted || 0), 1);
+    const data = simulationResults?.scenario_comparison?.[key];
+    if (!data) return 1;
+    return Math.max(Math.abs(data.original || 0), Math.abs(data.adjusted || 0), 1);
   };
-
-  const hasVariables =
-    simulationData?.variables && simulationData.variables.length > 0;
-
-  const handleConfirm = useCallback(() => {
-    if (!simulationResults) {
-      setToast({ type: "info", message: "Simulation results not available yet." });
-      setTimeout(() => setToast(null), 3000);
-      return;
-    }
-
-    if (isConfirming || isSkipping) return;
-
-    setIsConfirming(true);
-
-    const scenarioParams = simulationResults.scenario_params || {};
-    const scenarioComparison = simulationResults.scenario_comparison || {};
-    const lightweightSummary = {
-      scenario_params: scenarioParams,
-      scenario_comparison: scenarioComparison,
-      confirmed_at: new Date().toISOString(),
-      has_adjustments: Object.keys(scenarioComparison).length > 0,
-    };
-
-    try {
-      onConfirmSimulation(lightweightSummary);
-      setToast({ type: "success", message: "Proceeding to Action Plan..." });
-    } catch (err) {
-      setIsConfirming(false);
-      setToast({ type: "info", message: "Failed to proceed. Please try again." });
-      setTimeout(() => setToast(null), 3000);
-    }
-    // Timeout tidak di-reset agar loading terus berputar hingga halaman berganti
-  }, [simulationResults, onConfirmSimulation, isConfirming, isSkipping]);
-
-  const handleSkip = useCallback(() => {
-    if (isConfirming || isSkipping) return;
-    setIsSkipping(true);
-    setToast({ type: "success", message: "Proceeding to Action Plan..." });
-    try {
-      onSkipSimulation();
-    } catch(err) {
-      setIsSkipping(false);
-      setToast({ type: "info", message: "Failed to skip. Please try again." });
-      setTimeout(() => setToast(null), 3000);
-    }
-    // Timeout tidak di-reset agar loading terus berputar hingga halaman berganti
-  }, [onSkipSimulation, isConfirming, isSkipping]);
 
   return (
     <div className="h-[calc(100vh-72px)] flex flex-col bg-slate-50 overflow-hidden relative">
       {toast && (
         <div className="fixed top-24 left-0 w-full flex justify-center z-[100] pointer-events-none">
-          <div
-            className={`px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium border animate-slideDown ${toast.type === "info" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
-          >
-            {toast.type === "info" ? (
-              <Info className="w-4 h-4" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4" />
-            )}
+          <div className={`px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium border animate-slideDown ${toast.type === "info" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+            {toast.type === "info" ? <Info className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
             {toast.message}
           </div>
         </div>
       )}
 
-      {/* [BARIS KODE UI HEADER & SIDEBAR TETAP SAMA SEPERTI SEBELUMNYA] */}
-      {/* ... bagian ini diringkas demi kejelasan, biarkan struktur UI Header Anda utuh ... */}
-      
+      {/* HEADER */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToDiscussion}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Analysis
-          </button>
+          <button onClick={onBackToDiscussion} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#4648d4] transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Analysis</button>
           <div className="h-6 w-px bg-slate-200" />
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#4648d4]/10 flex items-center justify-center">
-              <Calculator className="w-4 h-4 text-[#4648d4]" />
-            </div>
+            <div className="w-8 h-8 rounded-lg bg-[#4648d4]/10 flex items-center justify-center"><Calculator className="w-4 h-4 text-[#4648d4]" /></div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">
-                Simulation Engine
-              </h2>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                Quantitative Scenario Modeling
-              </p>
+              <h2 className="text-sm font-bold text-slate-900">Simulation Engine</h2>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Quantitative Scenario Modeling</p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${wsConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}
-          >
-            <div
-              className={`w-2 h-2 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
-            />
-            {wsConnected ? "Engine Online" : "Disconnected"}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${wsConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+            <div className={`w-2 h-2 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} /> {wsConnected ? "Engine Online" : "Disconnected"}
           </div>
-          <div className="px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-full text-xs font-bold border border-cyan-200">
-            Phase 3: Simulation
-          </div>
+          <div className="px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-full text-xs font-bold border border-cyan-200">Phase 3: Simulation</div>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* LEFT SIDEBAR - PARAMETERS */}
         <div className="w-[420px] flex flex-col border-r border-slate-200 bg-white overflow-y-auto">
-          {/* Header Deskripsi Problem Sidebar (Tidak berubah) */}
           <div className="p-6 border-b border-slate-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Network className="w-4 h-4 text-[#4648d4]" />
-              <span className="text-xs font-bold text-[#4648d4] uppercase tracking-wider">
-                {simulationData?.domain || "Domain"}
-              </span>
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2">
-              {simulationData?.domain || "Simulation"}
-            </h3>
-
+            <div className="flex items-center gap-2 mb-1"><Network className="w-4 h-4 text-[#4648d4]" /><span className="text-xs font-bold text-[#4648d4] uppercase tracking-wider">{simulationData?.domain || "Domain"}</span></div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2 leading-tight uppercase">{simulationData?.domain || "Simulation"}</h3>
             <div className="relative">
-              <p className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? 'line-clamp-3' : ''}`}>
-                {simulationData?.original_problem || "No problem description"}
-              </p>
-              {(simulationData?.original_problem?.length > 150) && (
-                <button
-                  onClick={() => setIsProblemExpanded(!isProblemExpanded)}
-                  className="text-[#4648d4] text-[10px] font-bold mt-1 hover:underline focus:outline-none"
-                >
-                  {isProblemExpanded ? "See Less" : "See More"}
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-4">
-              <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                  Entities
-                </p>
-                <p className="text-sm font-bold text-slate-900">
-                  {simulationData?.entities?.count
-                    ? `${simulationData.entities.count} ${simulationData.entities.name || ""}`
-                    : "N/A"}
-                </p>
-              </div>
-              <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                  Variables
-                </p>
-                <p className="text-sm font-bold text-slate-900">
-                  {simulationData?.variables?.length || 0}
-                </p>
-              </div>
+              <p className={`text-xs text-slate-500 leading-relaxed ${!isProblemExpanded ? 'line-clamp-3' : ''}`}>{simulationData?.original_problem}</p>
+              {simulationData?.original_problem?.length > 150 && <button onClick={() => setIsProblemExpanded(!isProblemExpanded)} className="text-[#4648d4] text-[10px] font-bold mt-1 hover:underline">{isProblemExpanded ? "See Less" : "See More"}</button>}
             </div>
           </div>
 
           <div className="p-6 flex-1">
             <div className="flex items-center justify-between mb-5">
-              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-[#4648d4]" />{" "}
-                Parameters
-              </h4>
-              <button
-                onClick={handleReset}
-                className="text-xs text-slate-500 hover:text-[#4648d4] font-medium flex items-center gap-1 transition-colors"
-              >
-                <RefreshCcw className="w-3 h-3" /> Reset
-              </button>
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 uppercase"><SlidersHorizontal className="w-4 h-4 text-[#4648d4]" /> Parameters</h4>
+              <button onClick={handleReset} className="text-xs text-slate-500 hover:text-[#4648d4] font-medium flex items-center gap-1 transition-colors"><RefreshCcw className="w-3 h-3" /> Reset</button>
             </div>
-
-            {hasVariables ? (
-              <div className="space-y-5">
-                {simulationData.variables.map((v, idx) => (
-                  <div key={v.name} className="group">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded bg-[#4648d4]/10 text-[#4648d4] flex items-center justify-center text-[10px] font-bold">
-                          {idx + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {formatKpiName(v.name)}
-                          </p>
-                          <p className="text-[10px] text-slate-500">
-                            {v.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm font-bold text-[#4648d4] font-mono">
-                          {formatNumber(
-                            adjustedValues[v.name] ?? v.current_value,
-                          )}
-                        </span>
-                        <span className="text-[10px] text-slate-500 ml-1">
-                          {v.unit}
-                        </span>
-                      </div>
+            <div className="space-y-5">
+              {simulationData?.variables?.map((v, idx) => (
+                <div key={v.name} className="group">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-[#4648d4]/10 text-[#4648d4] flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                      <div><p className="text-xs font-bold text-slate-900 uppercase">{formatKpiName(v.name)}</p><p className="text-[10px] text-slate-500">{v.description}</p></div>
                     </div>
-                    <div className="relative px-1">
-                      <input
-                        type="range"
-                        min={v.min}
-                        max={v.max}
-                        step={v.step}
-                        value={adjustedValues[v.name] ?? v.current_value}
-                        onChange={(e) =>
-                          handleSliderChange(v.name, e.target.value)
-                        }
-                        className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#4648d4]"
-                      />
-                      <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-medium">
-                        <span>{formatNumber(v.min)}</span>
-                        <span className="text-slate-300">{v.scale}</span>
-                        <span>{formatNumber(v.max)}</span>
-                      </div>
-                    </div>
+                    <div className="text-right"><span className="text-xs font-bold text-[#4648d4] font-mono">{formatNumber(adjustedValues[v.name] ?? v.current_value)}</span><span className="text-[10px] text-slate-500 ml-1">{v.unit}</span></div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <AlertOctagon className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-slate-700 mb-1">
-                  No Adjustable Parameters
-                </p>
-                <p className="text-xs text-slate-500">
-                  Variables could not be extracted. You can still proceed to the
-                  action plan.
-                </p>
-              </div>
-            )}
-
+                  <input type="range" min={v.min} max={v.max} step={v.step} value={adjustedValues[v.name] ?? v.current_value} onChange={(e) => handleSliderChange(v.name, e.target.value)} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#4648d4]" />
+                  <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-medium"><span>{formatNumber(v.min)}</span><span className="text-slate-300 uppercase">{v.scale}</span><span>{formatNumber(v.max)}</span></div>
+                </div>
+              ))}
+            </div>
             <div className="mt-6 space-y-3">
-              <button
-                onClick={handleRun}
-                disabled={isRunning || !wsConnected}
-                className="w-full py-3 bg-[#4648d4] hover:bg-[#3638b0] disabled:bg-slate-300 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                {isRunning ? (
-                  <RefreshCcw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Play className="w-4 h-4" />
-                )}
-                {isRunning ? "Running Simulation..." : "Run Simulation"}
+              <button onClick={handleRun} disabled={isRunning || !wsConnected || isConfirming || isSkipping} className="w-full py-3 bg-[#4648d4] hover:bg-[#3638b0] disabled:bg-slate-300 text-white rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2">
+                {isRunning ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} {isRunning ? "Processing..." : "Run Simulation"}
               </button>
-              
-              {/* TOMBOL SKIP DIPERBARUI */}
-              <button
-                onClick={handleSkip}
-                disabled={!wsConnected || isConfirming || isSkipping}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 disabled:text-slate-400 text-slate-700 rounded-xl font-semibold text-sm border border-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                {isSkipping ? (
-                  <RefreshCcw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FastForward className="w-4 h-4" />
-                )}
-                {isSkipping ? "Processing..." : "Skip to Action Plan"}
+              <button onClick={() => { setIsSkipping(true); setToast({type: "success", message: "Proceeding to Action Plan..."}); onSkipSimulation(); }} disabled={!wsConnected || isConfirming || isSkipping} className="w-full py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm border border-slate-200 flex items-center justify-center gap-2">
+                {isSkipping ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <FastForward className="w-4 h-4" />} {isSkipping ? "Processing..." : "Skip to Action Plan"}
               </button>
             </div>
           </div>
 
-          {/* Expert Analysis */}
           <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
-              <Brain className="w-4 h-4 text-[#4648d4]" /> Expert Analysis
-            </h4>
-            <div className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto space-y-2 pr-1">
-              {simulationData?.expert_analysis ? (
-                simulationData.expert_analysis
-                  .split("\n")
-                  .filter((l) => l.trim().length > 0)
-                  .map((line, i) => {
-                    const roleMatch = line.match(/^\[(.*?)\]:\s*(.*)$/);
-                    if (roleMatch) {
-                      const roleName = roleMatch[1];
-                      const roleContent = roleMatch[2].trim();
-                      return (
-                        <div key={i} className="mb-2">
-                          <div className="font-semibold text-[#4648d4] mt-2">
-                            [{roleName}]:
-                          </div>
-                          {roleContent.length > 0 && (
-                            <div className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed">
-                              {roleContent}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={i} className="pl-2 border-l-2 border-slate-200 text-xs text-slate-600 leading-relaxed">
-                        {line}
-                      </div>
-                    );
-                  })
-              ) : (
-                <p className="text-slate-400 italic">
-                  No expert analysis available
-                </p>
-              )}
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3 uppercase"><Brain className="w-4 h-4 text-[#4648d4]" /> Expert Analysis</h4>
+            <div className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto space-y-2">
+              {simulationData?.expert_analysis?.split("\n").filter(l => l.trim()).map((line, i) => <div key={i} className="pl-2 border-l-2 border-slate-200">{line}</div>)}
             </div>
           </div>
         </div>
 
+        {/* MAIN RESULTS AREA */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           {!simulationResults ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-20 h-20 rounded-2xl bg-[#4648d4]/5 flex items-center justify-center mb-4">
-                <Gauge className="w-8 h-8 text-[#4648d4]/40" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                Simulation Results
-              </h3>
-              <p className="text-sm text-slate-500 max-w-md">
-                Adjust parameters and run the simulation, or skip directly to
-                the Action Plan using the discussion data.
-              </p>
+              <div className="w-20 h-20 rounded-2xl bg-[#4648d4]/5 flex items-center justify-center mb-4"><Gauge className="w-8 h-8 text-[#4648d4]/40" /></div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">Waiting for Simulation Data</h3>
+              <p className="text-sm text-slate-500 max-w-md">Adjust the parameters on the left and click 'Run Simulation' to see quantitative impact results.</p>
             </div>
           ) : (
-            <div className="max-w-5xl mx-auto space-y-6">
-              {/* Hasil Simulasi (Card Risk, KPI, dsb) Dibiarkan Sama */}
-              {/* ... Bagian rendering data Results KPI & Graph dihilangkan sementara dari penulisan ulang ini agar rapi, Anda TETAP gunakan kode Anda yang lama karena itu sudah benar ... */}
-              
-              {/* Bagian bawah langsung menuju tombol confirm (Diringkas di markdown tapi pastikan menempelkan kode hasil Anda sendiri) */}
-              
-              {/* ========================================== */}
-              {/* TOMBOL CONFIRM & PROCEED */}
-              {/* ========================================== */}
+            <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
+              {/* RISK CARD */}
+              <div className={`rounded-2xl p-4 border flex items-start gap-3 ${getRiskStyles(simulationResults.operational_impact?.risk_level).bg}`}>
+                <AlertOctagon className={`w-5 h-5 mt-0.5 shrink-0 ${getRiskStyles(simulationResults.operational_impact?.risk_level).icon}`} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${getRiskStyles(simulationResults.operational_impact?.risk_level).badge}`}>Risk: {simulationResults.operational_impact?.risk_level || "normal"}</span></div>
+                  <div className={`text-xs space-y-1 font-medium ${getRiskStyles(simulationResults.operational_impact?.risk_level).text}`}>
+                    {simulationResults.operational_impact?.warnings?.map((w, i) => <div key={i}>⚠️ {w}</div>)}
+                    {simulationResults.operational_impact?.recommendations?.map((r, i) => <div key={i} className="flex gap-1.5"><Lightbulb className="w-3 h-3 mt-0.5" /> {r}</div>)}
+                  </div>
+                </div>
+              </div>
+
+              {/* KPI GRID */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {Object.entries(simulationResults.kpis || {}).map(([key, data]) => (
+                  <div key={key} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-[#4648d4]" /><span className="text-[10px] uppercase text-slate-500 font-bold">{formatKpiName(key)}</span></div>
+                    <p className="text-2xl font-bold text-slate-900 mb-1">{formatNumber(data.value)}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">{data.unit} • {data.formula}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* GRAPHS */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-900 text-xs mb-4 flex items-center gap-2 uppercase"><LineChart className="w-4 h-4 text-[#4648d4]" /> Impact Analysis (%)</h4>
+                  <div className="space-y-4">
+                    {Object.entries(simulationResults.scenario_comparison || {}).filter(([_, d]) => d.change_percent !== undefined).map(([key, data]) => (
+                      <div key={key} className="space-y-1">
+                        <div className="flex justify-between text-[10px] font-bold"><span className="text-slate-600 uppercase">{formatKpiName(key)}</span><span className={data.change_percent >= 0 ? "text-emerald-600" : "text-red-600"}>{data.change_percent > 0 ? "+" : ""}{data.change_percent}%</span></div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-1000 ${data.change_percent >= 0 ? "bg-emerald-500" : "bg-red-500"}`} style={{ width: `${Math.min(Math.abs(data.change_percent), 100)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-900 text-xs mb-4 flex items-center gap-2 uppercase"><Scale className="w-4 h-4 text-[#4648d4]" /> Scenario Delta</h4>
+                  <div className="space-y-3">
+                    {Object.entries(simulationResults.scenario_comparison || {}).slice(0, 5).map(([key, data]) => {
+                      const max = maxComparisonValue(key);
+                      return (
+                        <div key={key} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{formatKpiName(key)}</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2"><div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-slate-400" style={{ width: `${(Math.abs(data.original) / max) * 100}%` }} /></div><span className="text-[10px] font-mono w-16 text-right font-bold">{formatNumber(data.original)}</span></div>
+                            <div className="flex items-center gap-2"><div className="flex-1 h-2 bg-[#4648d4]/20 rounded-full overflow-hidden"><div className="h-full bg-[#4648d4]" style={{ width: `${(Math.abs(data.adjusted) / max) * 100}%` }} /></div><span className="text-[10px] font-mono w-16 text-right font-bold text-[#4648d4]">{formatNumber(data.adjusted)}</span></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* CONFIRM ACTION */}
               <div className="bg-gradient-to-br from-[#4648d4]/5 to-white rounded-2xl p-6 border border-[#4648d4]/20 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">
-                      Proceed to Action Plan?
-                    </h4>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Simulation results will be used as the basis for strategic
-                      recommendations and SOP.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleConfirm}
-                    disabled={!wsConnected || isConfirming || isSkipping}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap"
-                  >
-                    {isConfirming ? (
-                      <RefreshCcw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4" />
-                    )}
-                    {isConfirming ? "Processing..." : "Confirm & Proceed"}
-                    {!isConfirming && <ArrowRight className="w-4 h-4" />}
+                  <div><h4 className="font-bold text-slate-900 text-sm">Proceed to Action Plan?</h4><p className="text-xs text-slate-600 mt-1">Simulation results will be used as the basis for strategic recommendations and SOP.</p></div>
+                  <button onClick={() => { setIsConfirming(true); setToast({type: "success", message: "Proceeding to Action Plan..."}); onConfirmSimulation(simulationResults); }} 
+                          disabled={!wsConnected || isConfirming || isSkipping} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 whitespace-nowrap">
+                    {isConfirming ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} {isConfirming ? "Processing..." : "Confirm & Proceed"}
                   </button>
                 </div>
               </div>
